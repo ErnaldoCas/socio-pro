@@ -4,6 +4,7 @@ import VoiceInput from '@/components/VoiceInput'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { parsearMovimiento } from '@/lib/nlpParser'
+import Graficos from '@/components/Graficos'
 
 export default function Home() {
   const [input, setInput] = useState('')
@@ -90,6 +91,7 @@ export default function Home() {
             <p className="text-xl font-semibold text-blue-600">${(ingresos - egresos).toLocaleString()}</p>
           </div>
         </div>
+        <Graficos movimientos={movimientos} />
 
         <div className="bg-white rounded-xl p-5 border border-gray-100 mb-6">
           <div className="flex justify-between items-center mb-3">
