@@ -1,13 +1,16 @@
 'use client'
 import SocioChat from '@/components/SocioChat'
+import VoiceInput from '@/components/VoiceInput'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { parsearMovimiento } from '@/lib/nlpParser'
 
 export default function Home() {
   const [input, setInput] = useState('')
   const [movimientos, setMovimientos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [mensaje, setMensaje] = useState('')
+  const [tipoDetectado, setTipoDetectado] = useState('')
 
   const supabase = createClient()
 
@@ -24,25 +27,33 @@ export default function Home() {
     setMovimientos(data || [])
   }
 
+  function handleInput(texto: string) {
+    setInput(texto)
+    if (texto.length > 3) {
+      const { tipo } = parsearMovimiento(texto)
+      setTipoDetectado(tipo)
+    } else {
+      setTipoDetectado('')
+    }
+  }
+
   async function registrar() {
     if (!input.trim()) return
     setLoading(true)
     setMensaje('')
 
-    const esIngreso = /vendí|cobré|ingresé|gané|recibí/i.test(input)
-    const montoMatch = input.match(/\d+/)
-    const monto = montoMatch ? parseInt(montoMatch[0]) : 0
-    const tipo = esIngreso ? 'ingreso' : 'egreso'
+    const { concepto, monto, tipo, categoria } = parsearMovimiento(input)
 
     const res = await fetch('/api/movimientos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ concepto: input, monto, tipo })
+      body: JSON.stringify({ concepto, monto, tipo, categoria })
     })
 
     if (res.ok) {
-      setMensaje('Registrado correctamente')
+      setMensaje(`Registrado como ${tipo} · $${monto.toLocaleString()} · ${categoria}`)
       setInput('')
+      setTipoDetectado('')
       cargarMovimientos()
     }
     setLoading(false)
@@ -81,15 +92,31 @@ export default function Home() {
         </div>
 
         <div className="bg-white rounded-xl p-5 border border-gray-100 mb-6">
-          <p className="text-sm font-medium text-gray-700 mb-3">Registrar movimiento</p>
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && registrar()}
-            placeholder='Ej: "vendí completos 5000" o "compré harina 3000"'
-            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-400 mb-3 text-gray-800 placeholder-gray-400 bg-white"
-          />
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-sm font-medium text-gray-700">Registrar movimiento</p>
+            {tipoDetectado && (
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                tipoDetectado === 'ingreso'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-600'
+              }`}>
+                {tipoDetectado === 'ingreso' ? 'Ingreso detectado' : 'Egreso detectado'}
+              </span>
+            )}
+          </div>
+
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={input}
+              onChange={e => handleInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && registrar()}
+              placeholder='Ej: "vendí completos 5000" o "compré harina 3000"'
+              className="flex-1 border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
+            />
+            <VoiceInput onResult={(texto: string) => handleInput(texto)} />
+          </div>
+
           <button
             onClick={registrar}
             disabled={loading}
@@ -97,7 +124,9 @@ export default function Home() {
           >
             {loading ? 'Registrando...' : 'Registrar'}
           </button>
-          {mensaje && <p className="text-green-600 text-xs mt-2 text-center">{mensaje}</p>}
+          {mensaje && (
+            <p className="text-green-600 text-xs mt-2 text-center">{mensaje}</p>
+          )}
         </div>
 
         <div className="bg-white rounded-xl p-5 border border-gray-100">
@@ -108,7 +137,14 @@ export default function Home() {
             <div className="space-y-2">
               {movimientos.map(m => (
                 <div key={m.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-                  <span className="text-sm text-gray-700">{m.concepto}</span>
+                  <div>
+                    <span className="text-sm text-gray-700">{m.concepto}</span>
+                    {m.categoria && (
+                      <span className="ml-2 text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+                        {m.categoria}
+                      </span>
+                    )}
+                  </div>
                   <span className={`text-sm font-medium ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>
                     {m.tipo === 'ingreso' ? '+' : '-'}${m.monto.toLocaleString()}
                   </span>
@@ -118,7 +154,7 @@ export default function Home() {
           )}
         </div>
 
-          <SocioChat />
+        <SocioChat />
 
       </div>
     </main>
