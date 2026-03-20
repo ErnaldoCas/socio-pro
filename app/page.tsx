@@ -1,16 +1,18 @@
 'use client'
 import SocioChat from '@/components/SocioChat'
 import VoiceInput from '@/components/VoiceInput'
+import Graficos from '@/components/Graficos'
+import HealthScore from '@/components/HealthScore'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { parsearMovimiento } from '@/lib/nlpParser'
-import Graficos from '@/components/Graficos'
 
 export default function Home() {
   const [input, setInput] = useState('')
   const [movimientos, setMovimientos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [mensaje, setMensaje] = useState('')
+  const [mensajeError, setMensajeError] = useState(false)
   const [tipoDetectado, setTipoDetectado] = useState('')
 
   const supabase = createClient()
@@ -24,7 +26,7 @@ export default function Home() {
       .from('movimientos')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(20)
     setMovimientos(data || [])
   }
 
@@ -42,6 +44,7 @@ export default function Home() {
     if (!input.trim()) return
     setLoading(true)
     setMensaje('')
+    setMensajeError(false)
 
     const { concepto, monto, tipo, categoria } = parsearMovimiento(input)
 
@@ -52,10 +55,14 @@ export default function Home() {
     })
 
     if (res.ok) {
-      setMensaje(`Registrado como ${tipo} · $${monto.toLocaleString()} · ${categoria}`)
+      setMensaje(`${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} de $${monto.toLocaleString()} registrado en ${categoria}`)
+      setMensajeError(false)
       setInput('')
       setTipoDetectado('')
       cargarMovimientos()
+    } else {
+      setMensaje('Hubo un error al registrar. Intenta de nuevo.')
+      setMensajeError(true)
     }
     setLoading(false)
   }
@@ -68,45 +75,32 @@ export default function Home() {
     .filter(m => m.tipo === 'egreso')
     .reduce((sum, m) => sum + m.monto, 0)
 
+  const balance = ingresos - egresos
+
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
+    <main className="min-h-screen bg-gray-100 p-4 pb-12">
       <div className="max-w-2xl mx-auto">
 
-        <div className="mb-8">
+        {/* Header */}
+        <div className="mb-6 pt-2">
           <h1 className="text-2xl font-semibold text-gray-800">Socio Pro</h1>
-          <p className="text-gray-600 text-sm">Tu socio digital de negocios</p>
+          <p className="text-gray-500 text-sm">Tu socio digital de negocios</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Ingresos</p>
-            <p className="text-xl font-semibold text-green-600">${ingresos.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Egresos</p>
-            <p className="text-xl font-semibold text-red-500">${egresos.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100">
-            <p className="text-xs text-gray-500 mb-1">Balance</p>
-            <p className="text-xl font-semibold text-blue-600">${(ingresos - egresos).toLocaleString()}</p>
-          </div>
-        </div>
-        <Graficos movimientos={movimientos} />
-
-        <div className="bg-white rounded-xl p-5 border border-gray-100 mb-6">
+        {/* Smart Entry */}
+        <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
           <div className="flex justify-between items-center mb-3">
             <p className="text-sm font-medium text-gray-700">Registrar movimiento</p>
             {tipoDetectado && (
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                 tipoDetectado === 'ingreso'
                   ? 'bg-green-100 text-green-700'
                   : 'bg-red-100 text-red-600'
               }`}>
-                {tipoDetectado === 'ingreso' ? 'Ingreso detectado' : 'Egreso detectado'}
+                {tipoDetectado === 'ingreso' ? '+ Ingreso' : '- Egreso'}
               </span>
             )}
           </div>
-
           <div className="flex gap-2 mb-3">
             <input
               type="text"
@@ -118,36 +112,70 @@ export default function Home() {
             />
             <VoiceInput onResult={(texto: string) => handleInput(texto)} />
           </div>
-
           <button
             onClick={registrar}
             disabled={loading}
-            className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+            className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 active:scale-95 transition-all disabled:opacity-50"
           >
             {loading ? 'Registrando...' : 'Registrar'}
           </button>
           {mensaje && (
-            <p className="text-green-600 text-xs mt-2 text-center">{mensaje}</p>
+            <p className={`text-xs mt-2 text-center ${mensajeError ? 'text-red-500' : 'text-green-600'}`}>
+              {mensaje}
+            </p>
           )}
         </div>
 
-        <div className="bg-white rounded-xl p-5 border border-gray-100">
-          <p className="text-sm font-medium text-gray-700 mb-3">Últimos movimientos</p>
+        {/* Métricas */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <p className="text-xs text-gray-400 mb-1">Ingresos</p>
+            <p className="text-lg font-semibold text-green-600">${ingresos.toLocaleString()}</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <p className="text-xs text-gray-400 mb-1">Egresos</p>
+            <p className="text-lg font-semibold text-red-500">${egresos.toLocaleString()}</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <p className="text-xs text-gray-400 mb-1">Balance</p>
+            <p className={`text-lg font-semibold ${balance >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
+              ${balance.toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        {/* Health Score */}
+        <HealthScore movimientos={movimientos} />
+
+        {/* Gráficos */}
+        <Graficos movimientos={movimientos} />
+
+        {/* Últimos movimientos */}
+        <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-sm font-medium text-gray-700">Últimos movimientos</p>
+            <span className="text-xs text-gray-400">{movimientos.length} registros</span>
+          </div>
           {movimientos.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-4">Aún no hay movimientos registrados</p>
+            <p className="text-gray-400 text-sm text-center py-6">
+              Aún no hay movimientos — registra el primero arriba
+            </p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {movimientos.map(m => (
-                <div key={m.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-                  <div>
-                    <span className="text-sm text-gray-700">{m.concepto}</span>
-                    {m.categoria && (
-                      <span className="ml-2 text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
-                        {m.categoria}
+                <div key={m.id} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
+                  <div className="flex-1 min-w-0 mr-3">
+                    <p className="text-sm text-gray-700 truncate">{m.concepto}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {m.categoria && (
+                        <span className="text-xs text-gray-400">{m.categoria}</span>
+                      )}
+                      <span className="text-xs text-gray-300">
+                        {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                       </span>
-                    )}
+                    </div>
                   </div>
-                  <span className={`text-sm font-medium ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>
+                  <span className={`text-sm font-medium flex-shrink-0 ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>
                     {m.tipo === 'ingreso' ? '+' : '-'}${m.monto.toLocaleString()}
                   </span>
                 </div>
@@ -156,6 +184,7 @@ export default function Home() {
           )}
         </div>
 
+        {/* Socio Experto */}
         <SocioChat />
 
       </div>
