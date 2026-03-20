@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 
 export default function Home() {
   const [input, setInput] = useState('')
-  const [movimientos, setMovimientos] = useState([])
+  const [movimientos, setMovimientos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [mensaje, setMensaje] = useState('')
 
