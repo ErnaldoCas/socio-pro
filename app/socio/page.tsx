@@ -1,5 +1,6 @@
 'use client'
 import SocioChat from '@/components/SocioChat'
+import AnalisisProfundo from '@/components/AnalisisProfundo'
 
 export default function Socio() {
   return (
@@ -11,9 +12,11 @@ export default function Socio() {
           <p className="text-gray-500 text-sm">Tu asesor de negocios personal</p>
         </div>
 
+        <AnalisisProfundo />
+
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-4">
-          <p className="text-xs font-medium text-amber-700 mb-1">Preguntas sugeridas</p>
-          <div className="flex flex-wrap gap-2 mt-2">
+          <p className="text-xs font-medium text-amber-700 mb-2">Preguntas sugeridas</p>
+          <div className="flex flex-wrap gap-2">
             {[
               '¿En qué estoy perdiendo plata?',
               '¿Cuál es mi producto más rentable?',

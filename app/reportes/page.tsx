@@ -34,6 +34,8 @@ export default function Reportes() {
 
   const categorias = ['todas', ...Array.from(new Set(movimientos.map(m => m.categoria || 'general')))]
   const filtrados = filtrarMovimientos()
+  const ingresos = filtrados.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
+  const egresos = filtrados.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
 
   async function escanearBoleta(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -67,10 +69,7 @@ export default function Reportes() {
 
   async function exportarReporte() {
     setExportando(true)
-    const ingresos = filtrados.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
-    const egresos = filtrados.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
     const balance = ingresos - egresos
-
     const html = `
       <html>
       <head>
@@ -98,10 +97,10 @@ export default function Reportes() {
         <h1>Socio Pro — Reporte</h1>
         <p class="sub">Generado el ${new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         <div class="filtros">
-          Filtros: Tipo: ${filtroTipo} | Categoría: ${filtroCategoria} 
-          ${fechaDesde ? `| Desde: ${fechaDesde}` : ''} 
-          ${fechaHasta ? `| Hasta: ${fechaHasta}` : ''}
-          | ${filtrados.length} movimientos
+          Filtros aplicados: Tipo: ${filtroTipo} | Categoría: ${filtroCategoria}
+          ${fechaDesde ? ` | Desde: ${fechaDesde}` : ''}
+          ${fechaHasta ? ` | Hasta: ${fechaHasta}` : ''}
+          | Total: ${filtrados.length} movimientos
         </div>
         <div class="metrics">
           <div class="card"><span>Ingresos</span><div class="green">$${ingresos.toLocaleString()}</div></div>
@@ -133,9 +132,6 @@ export default function Reportes() {
     setExportando(false)
   }
 
-  const ingresos = filtrados.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
-  const egresos = filtrados.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
-
   return (
     <main className="min-h-screen bg-gray-100 p-4 pb-24">
       <div className="max-w-2xl mx-auto">
@@ -145,6 +141,7 @@ export default function Reportes() {
           <p className="text-gray-500 text-sm">Exporta y escanea documentos</p>
         </div>
 
+        {/* Filtros */}
         <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
           <p className="text-sm font-medium text-gray-700 mb-3">Filtros</p>
           <div className="grid grid-cols-2 gap-3 mb-3">
@@ -191,9 +188,9 @@ export default function Reportes() {
               />
             </div>
           </div>
-          <p className="text-xs text-gray-400 text-center">{filtrados.length} movimientos seleccionados</p>
         </div>
 
+        {/* Métricas filtradas */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-white rounded-xl p-4 border border-gray-100">
             <p className="text-xs text-gray-400 mb-1">Ingresos</p>
@@ -211,27 +208,59 @@ export default function Reportes() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
-          <p className="text-sm font-medium text-gray-700 mb-1">Exportar</p>
-          <p className="text-xs text-gray-400 mb-4">{filtrados.length} movimientos seleccionados</p>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={exportarExcel}
-              disabled={exportando || filtrados.length === 0}
-              className="bg-green-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-all"
-            >
-              {exportando ? 'Exportando...' : 'Descargar Excel'}
-            </button>
-            <button
-              onClick={exportarReporte}
-              disabled={exportando || filtrados.length === 0}
-              className="bg-blue-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-all"
-            >
-              {exportando ? 'Exportando...' : 'Descargar Reporte'}
-            </button>
+        {/* Vista previa + exportar */}
+        <div className="bg-white rounded-xl border border-gray-100 mb-4">
+          <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
+            <p className="text-sm font-medium text-gray-700">Vista previa</p>
+            <span className="text-xs text-gray-400">{filtrados.length} movimientos</span>
+          </div>
+
+          {filtrados.length === 0 ? (
+            <p className="text-gray-400 text-sm text-center py-8">
+              No hay movimientos con estos filtros
+            </p>
+          ) : (
+            <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+              {filtrados.map(m => (
+                <div key={m.id} className="px-5 py-3 flex justify-between items-center">
+                  <div className="flex-1 min-w-0 mr-3">
+                    <p className="text-sm text-gray-800 truncate">{m.concepto}</p>
+                    <div className="flex gap-2 mt-0.5">
+                      <span className="text-xs text-gray-400">{m.categoria || 'general'}</span>
+                      <span className="text-xs text-gray-300">
+                        {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`text-sm font-medium flex-shrink-0 ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>
+                    {m.tipo === 'ingreso' ? '+' : '-'}${m.monto.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="px-5 py-4 border-t border-gray-50">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={exportarExcel}
+                disabled={exportando || filtrados.length === 0}
+                className="bg-green-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-all"
+              >
+                {exportando ? 'Exportando...' : 'Descargar Excel'}
+              </button>
+              <button
+                onClick={exportarReporte}
+                disabled={exportando || filtrados.length === 0}
+                className="bg-blue-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-all"
+              >
+                {exportando ? 'Exportando...' : 'Descargar Reporte'}
+              </button>
+            </div>
           </div>
         </div>
 
+        {/* Escanear boleta */}
         <div className="bg-white rounded-xl p-5 border border-gray-100">
           <p className="text-sm font-medium text-gray-700 mb-1">Escanear boleta</p>
           <p className="text-xs text-gray-400 mb-4">Sube una foto y extraemos el texto automáticamente</p>
