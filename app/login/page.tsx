@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 
 export default function Login() {
@@ -8,7 +9,7 @@ export default function Login() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`
+        redirectTo: `${window.location.origin}/auth/callback`
       }
     })
   }
@@ -18,8 +19,14 @@ export default function Login() {
       <div className="max-w-sm w-full">
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-semibold text-gray-800 mb-2">Socio Pro</h1>
-          <p className="text-gray-500 text-sm">Tu socio digital de negocios</p>
+          <Image
+            src="/logo.png"
+            alt="Socio Pro"
+            width={200}
+            height={200}
+            className="mx-auto mb-4"
+          />
+          <p className="text-gray-500 text-sm">Contabilidad y finanzas simples</p>
         </div>
 
         <div className="bg-white rounded-xl p-6 border border-gray-100">
