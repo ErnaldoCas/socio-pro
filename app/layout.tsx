@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
 import './globals.css'
-import NavBar from '@/components/NavBar'
 
 const geist = Geist({ subsets: ['latin'] })
 
@@ -19,7 +18,6 @@ export default function RootLayout({
     <html lang="es">
       <body className={geist.className}>
         {children}
-        <NavBar />
       </body>
     </html>
   )

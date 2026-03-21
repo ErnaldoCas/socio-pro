@@ -1,4 +1,6 @@
 'use client'
+import AuthGuard from '@/components/AuthGuard'
+import NavBar from '@/components/NavBar'
 import { useState, useEffect } from 'react'
 
 export default function Inventario() {
@@ -50,7 +52,8 @@ export default function Inventario() {
   const stockBajo = productos.filter(p => p.stock <= p.stock_minimo)
 
   return (
-    <main className="min-h-screen bg-gray-100 p-4 pb-12">
+    <AuthGuard>
+      <main className="min-h-screen bg-gray-100 p-4 pb-24">
       <div className="max-w-2xl mx-auto">
 
         <div className="mb-6 pt-2">
@@ -177,4 +180,6 @@ export default function Inventario() {
       </div>
     </main>
   )
+  <NavBar />
+    </AuthGuard>
 }

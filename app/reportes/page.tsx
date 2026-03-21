@@ -1,4 +1,6 @@
 'use client'
+import AuthGuard from '@/components/AuthGuard'
+import NavBar from '@/components/NavBar'
 import { useState, useEffect, useRef } from 'react'
 
 export default function Reportes() {
@@ -133,7 +135,8 @@ export default function Reportes() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 p-4 pb-24">
+    <AuthGuard>
+      <main className="min-h-screen bg-gray-100 p-4 pb-24">
       <div className="max-w-2xl mx-auto">
 
         <div className="mb-6 pt-2">
@@ -295,4 +298,6 @@ export default function Reportes() {
       </div>
     </main>
   )
+  <NavBar />
+    </AuthGuard>
 }
