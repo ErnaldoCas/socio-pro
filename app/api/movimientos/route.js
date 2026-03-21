@@ -8,7 +8,7 @@ export async function GET() {
     .order('created_at', { ascending: false })
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data)
+  return Response.json(data || [])
 }
 
 export async function POST(request) {
@@ -27,4 +27,18 @@ export async function POST(request) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json(data[0])
+}
+
+export async function DELETE(request) {
+  const supabase = createClient()
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+
+  const { error } = await supabase
+    .from('movimientos')
+    .delete()
+    .eq('id', id)
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json({ success: true })
 }

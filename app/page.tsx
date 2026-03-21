@@ -78,16 +78,14 @@ export default function Home() {
   const balance = ingresos - egresos
 
   return (
-    <main className="min-h-screen bg-gray-100 p-4 pb-12">
+    <main className="min-h-screen bg-gray-100 p-4 pb-24">
       <div className="max-w-2xl mx-auto">
 
-        {/* Header */}
         <div className="mb-6 pt-2">
           <h1 className="text-2xl font-semibold text-gray-800">Socio Pro</h1>
           <p className="text-gray-500 text-sm">Tu socio digital de negocios</p>
         </div>
 
-        {/* Smart Entry */}
         <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
           <div className="flex justify-between items-center mb-3">
             <p className="text-sm font-medium text-gray-700">Registrar movimiento</p>
@@ -126,7 +124,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Métricas */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-white rounded-xl p-4 border border-gray-100">
             <p className="text-xs text-gray-400 mb-1">Ingresos</p>
@@ -144,13 +141,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Health Score */}
         <HealthScore movimientos={movimientos} />
 
-        {/* Gráficos */}
         <Graficos movimientos={movimientos} />
 
-        {/* Últimos movimientos */}
         <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
           <div className="flex justify-between items-center mb-3">
             <p className="text-sm font-medium text-gray-700">Últimos movimientos</p>
@@ -184,7 +178,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Socio Experto */}
         <SocioChat />
 
       </div>
