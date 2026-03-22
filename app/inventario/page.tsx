@@ -53,7 +53,7 @@ export default function Inventario() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-20 pb-24">
         <div className="max-w-2xl mx-auto">
 
           <div className="mb-6 pt-2">
