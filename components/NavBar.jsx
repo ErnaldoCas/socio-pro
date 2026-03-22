@@ -14,26 +14,38 @@ export default function NavBar() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50">
-      <div className="max-w-2xl mx-auto flex justify-around items-center py-2">
-        {links.map(link => {
-          const active = pathname === link.href
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${
-                active ? 'text-green-600' : 'text-gray-400'
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d={link.icon} />
-              </svg>
-              <span className={`text-xs ${active ? 'font-medium' : ''}`}>{link.label}</span>
-            </Link>
-          )
-        })}
-      </div>
-    </nav>
+    <>
+      <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-100 z-50">
+        <div className="max-w-2xl mx-auto px-4 py-0.5 flex items-center gap-3">
+          <img src="/logo.png" alt="Socio Pro" className="w-28 h-28 rounded-xl object-contain" />
+          <div>
+            <p className="text-base font-semibold text-gray-800 leading-tight">Socio Pro</p>
+            <p className="text-xs text-gray-400 leading-tight">Contabilidad & finanzas simples</p>
+          </div>
+        </div>
+      </header>
+
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50">
+        <div className="max-w-2xl mx-auto flex justify-around items-center py-1">
+          {links.map(link => {
+            const active = pathname === link.href
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-all ${
+                  active ? 'text-green-600' : 'text-gray-400'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={active ? 2.5 : 1.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d={link.icon} />
+                </svg>
+                <span className={`text-xs ${active ? 'font-medium' : ''}`}>{link.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
+    </>
   )
 }

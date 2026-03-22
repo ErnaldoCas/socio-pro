@@ -84,9 +84,12 @@ export default function Home() {
       <main className="min-h-screen bg-gray-100 p-4 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          <div className="mb-6 pt-2">
-            <h1 className="text-2xl font-semibold text-gray-800">Socio Pro</h1>
-            <p className="text-gray-500 text-sm">Tu socio digital de negocios</p>
+          <div className="mb-6 pt-2 flex items-center gap-3">
+            <img src="/logo.png" alt="Socio Pro" className="w-12 h-12 rounded-xl object-contain" />
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-800">Socio Pro</h1>
+              <p className="text-gray-500 text-sm">Tu socio digital de negocios</p>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
