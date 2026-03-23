@@ -1,18 +1,16 @@
 'use client'
 import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function Reportes() {
   const [movimientos, setMovimientos] = useState<any[]>([])
-  const [escaneando, setEscaneando] = useState(false)
-  const [textoOCR, setTextoOCR] = useState('')
   const [exportando, setExportando] = useState(false)
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroCategoria, setFiltroCategoria] = useState('todas')
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [cierreMostrado, setCierreMostrado] = useState(false)
 
   useEffect(() => {
     cargarMovimientos()
@@ -34,23 +32,85 @@ export default function Reportes() {
     })
   }
 
+  function movimientosHoy() {
+    const hoy = new Date().toLocaleDateString('es-CL')
+    return movimientos.filter(m =>
+      new Date(m.created_at).toLocaleDateString('es-CL') === hoy
+    )
+  }
+
+  async function cierreDeCaja() {
+    setCierreMostrado(true)
+    const hoy = movimientosHoy()
+    const ingresosHoy = hoy.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
+    const egresosHoy = hoy.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
+    const balanceHoy = ingresosHoy - egresosHoy
+
+    const html = `
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Cierre de Caja — Socio Pro</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; color: #1f2937; max-width: 600px; margin: 0 auto; }
+          h1 { font-size: 22px; margin-bottom: 4px; }
+          .sub { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+          .metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+          .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; text-align: center; }
+          .card span { display: block; font-size: 11px; color: #9ca3af; margin-bottom: 6px; }
+          .green { color: #16a34a; font-size: 20px; font-weight: 700; }
+          .red { color: #ef4444; font-size: 20px; font-weight: 700; }
+          .blue { color: #2563eb; font-size: 20px; font-weight: 700; }
+          .divider { border: none; border-top: 1px solid #f3f4f6; margin: 16px 0; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          th { text-align: left; padding: 8px 10px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+          td { padding: 8px 10px; border-bottom: 1px solid #f9fafb; }
+          .ingreso { color: #16a34a; font-weight: 500; }
+          .egreso { color: #ef4444; font-weight: 500; }
+          .footer { margin-top: 24px; font-size: 11px; color: #9ca3af; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <h1>Cierre de Caja</h1>
+        <p class="sub">Socio Pro · ${new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <div class="metrics">
+          <div class="card"><span>Ingresos</span><div class="green">$${ingresosHoy.toLocaleString()}</div></div>
+          <div class="card"><span>Egresos</span><div class="red">$${egresosHoy.toLocaleString()}</div></div>
+          <div class="card"><span>Balance</span><div class="${balanceHoy >= 0 ? 'blue' : 'red'}">$${balanceHoy.toLocaleString()}</div></div>
+        </div>
+        <hr class="divider">
+        <table>
+          <tr><th>Hora</th><th>Concepto</th><th>Tipo</th><th>Monto</th></tr>
+          ${hoy.map(m => `
+            <tr>
+              <td>${new Date(m.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</td>
+              <td>${m.concepto}</td>
+              <td>${m.tipo}</td>
+              <td class="${m.tipo === 'ingreso' ? 'ingreso' : 'egreso'}">${m.tipo === 'ingreso' ? '+' : '-'}$${m.monto.toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </table>
+        <p class="footer">Generado con Socio Pro · ${new Date().toLocaleTimeString('es-CL')}</p>
+      </body>
+      </html>
+    `
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `cierre-caja-${new Date().toLocaleDateString('es-CL').replace(/\//g, '-')}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const categorias = ['todas', ...Array.from(new Set(movimientos.map(m => m.categoria || 'general')))]
   const filtrados = filtrarMovimientos()
   const ingresos = filtrados.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
   const egresos = filtrados.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
 
-  async function escanearBoleta(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setEscaneando(true)
-    setTextoOCR('')
-    const { createWorker } = await import('tesseract.js')
-    const worker = await createWorker('spa')
-    const { data: { text } } = await worker.recognize(file)
-    await worker.terminate()
-    setTextoOCR(text)
-    setEscaneando(false)
-  }
+  const hoy = movimientosHoy()
+  const ingresosHoy = hoy.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
+  const egresosHoy = hoy.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
 
   async function exportarExcel() {
     setExportando(true)
@@ -99,7 +159,7 @@ export default function Reportes() {
         <h1>Socio Pro — Reporte</h1>
         <p class="sub">Generado el ${new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         <div class="filtros">
-          Filtros aplicados: Tipo: ${filtroTipo} | Categoría: ${filtroCategoria}
+          Filtros: Tipo: ${filtroTipo} | Categoría: ${filtroCategoria}
           ${fechaDesde ? ` | Desde: ${fechaDesde}` : ''}
           ${fechaHasta ? ` | Hasta: ${fechaHasta}` : ''}
           | Total: ${filtrados.length} movimientos
@@ -136,17 +196,51 @@ export default function Reportes() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-22 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          <div className="mb-6 pt-2">
+          <div className="mb-4 pt-2">
             <h1 className="text-2xl font-semibold text-gray-800">Reportes</h1>
-            <p className="text-gray-500 text-sm">Exporta y escanea documentos</p>
+            <p className="text-gray-500 text-sm">Exporta y analiza tu negocio</p>
           </div>
 
-          <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
+          {/* Cierre de caja */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Cierre de caja</p>
+                <p className="text-xs text-gray-400">Resumen del día de hoy</p>
+              </div>
+              <button
+                onClick={cierreDeCaja}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-green-700 transition-all"
+              >
+                Hacer cierre
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-green-600 mb-1">Ingresos hoy</p>
+                <p className="text-sm font-semibold text-green-700">${ingresosHoy.toLocaleString()}</p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-red-500 mb-1">Egresos hoy</p>
+                <p className="text-sm font-semibold text-red-600">${egresosHoy.toLocaleString()}</p>
+              </div>
+              <div className={`${ingresosHoy - egresosHoy >= 0 ? 'bg-blue-50' : 'bg-red-50'} rounded-lg p-3 text-center`}>
+                <p className={`text-xs mb-1 ${ingresosHoy - egresosHoy >= 0 ? 'text-blue-500' : 'text-red-500'}`}>Balance hoy</p>
+                <p className={`text-sm font-semibold ${ingresosHoy - egresosHoy >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                  ${(ingresosHoy - egresosHoy).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 text-center mt-2">{hoy.length} movimientos hoy · descarga el PDF al hacer cierre</p>
+          </div>
+
+          {/* Filtros */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
             <p className="text-sm font-medium text-gray-700 mb-3">Filtros</p>
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-gray-400 mb-1">Tipo</p>
                 <select
@@ -192,23 +286,25 @@ export default function Reportes() {
             </div>
           </div>
 
+          {/* Métricas filtradas */}
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="bg-white rounded-xl p-4 border border-gray-100">
               <p className="text-xs text-gray-400 mb-1">Ingresos</p>
-              <p className="text-lg font-semibold text-green-600">${ingresos.toLocaleString()}</p>
+              <p className="text-base font-semibold text-green-600">${ingresos.toLocaleString()}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100">
               <p className="text-xs text-gray-400 mb-1">Egresos</p>
-              <p className="text-lg font-semibold text-red-500">${egresos.toLocaleString()}</p>
+              <p className="text-base font-semibold text-red-500">${egresos.toLocaleString()}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100">
               <p className="text-xs text-gray-400 mb-1">Balance</p>
-              <p className={`text-lg font-semibold ${ingresos - egresos >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
+              <p className={`text-base font-semibold ${ingresos - egresos >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
                 ${(ingresos - egresos).toLocaleString()}
               </p>
             </div>
           </div>
 
+          {/* Vista previa */}
           <div className="bg-white rounded-xl border border-gray-100 mb-4">
             <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center">
               <p className="text-sm font-medium text-gray-700">Vista previa</p>
@@ -258,37 +354,6 @@ export default function Reportes() {
                 </button>
               </div>
             </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-5 border border-gray-100">
-            <p className="text-sm font-medium text-gray-700 mb-1">Escanear boleta</p>
-            <p className="text-xs text-gray-400 mb-4">Sube una foto y extraemos el texto automáticamente</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={escanearBoleta}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={escaneando}
-              className="w-full border-2 border-dashed border-gray-200 rounded-lg py-8 text-sm text-gray-400 hover:border-green-400 hover:text-green-600 transition-all disabled:opacity-50"
-            >
-              {escaneando ? 'Escaneando boleta...' : 'Toca para subir foto o imagen'}
-            </button>
-            {textoOCR && (
-              <div className="mt-4">
-                <p className="text-xs font-medium text-gray-700 mb-2">Texto detectado:</p>
-                <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 whitespace-pre-wrap max-h-48 overflow-y-auto">
-                  {textoOCR}
-                </div>
-                <p className="text-xs text-amber-600 mt-2 bg-amber-50 px-3 py-2 rounded-lg">
-                  Copia el monto detectado y regístralo en el dashboard
-                </p>
-              </div>
-            )}
           </div>
 
         </div>
