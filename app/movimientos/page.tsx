@@ -37,7 +37,7 @@ export default function Movimientos() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
         <div className="max-w-2xl mx-auto">
 
           <div className="mb-6 pt-2">
