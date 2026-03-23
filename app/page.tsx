@@ -81,18 +81,29 @@ export default function Home() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-20 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          <div className="mb-6 pt-2 flex items-center gap-3">
-            <img src="/logo.png" alt="Socio Pro" className="w-12 h-12 rounded-xl object-contain" />
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-800">Socio Pro</h1>
-              <p className="text-gray-500 text-sm">Tu socio digital de negocios</p>
+          {/* Métricas principales */}
+          <div className="grid grid-cols-3 gap-3 mb-4 mt-2">
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <p className="text-xs text-gray-400 mb-1">Ingresos</p>
+              <p className="text-base font-semibold text-green-600">${ingresos.toLocaleString()}</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <p className="text-xs text-gray-400 mb-1">Egresos</p>
+              <p className="text-base font-semibold text-red-500">${egresos.toLocaleString()}</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <p className="text-xs text-gray-400 mb-1">Balance</p>
+              <p className={`text-base font-semibold ${balance >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                ${balance.toLocaleString()}
+              </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
+          {/* Smart Entry */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
             <div className="flex justify-between items-center mb-3">
               <p className="text-sm font-medium text-gray-700">Registrar movimiento</p>
               {tipoDetectado && (
@@ -111,8 +122,8 @@ export default function Home() {
                 value={input}
                 onChange={e => handleInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && registrar()}
-                placeholder='Ej: "vendí completos 5000" o "compré harina 3000"'
-                className="flex-1 border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
+                placeholder='Ej: "vendí completos 5000"'
+                className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
               />
               <VoiceInput onResult={(texto: string) => handleInput(texto)} />
             </div>
@@ -130,27 +141,14 @@ export default function Home() {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-white rounded-xl p-4 border border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">Ingresos</p>
-              <p className="text-lg font-semibold text-green-600">${ingresos.toLocaleString()}</p>
-            </div>
-            <div className="bg-white rounded-xl p-4 border border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">Egresos</p>
-              <p className="text-lg font-semibold text-red-500">${egresos.toLocaleString()}</p>
-            </div>
-            <div className="bg-white rounded-xl p-4 border border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">Balance</p>
-              <p className={`text-lg font-semibold ${balance >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
-                ${balance.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
+          {/* Health Score */}
           <HealthScore movimientos={movimientos} />
+
+          {/* Gráficos */}
           <Graficos movimientos={movimientos} />
 
-          <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
+          {/* Últimos movimientos */}
+          <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
             <div className="flex justify-between items-center mb-3">
               <p className="text-sm font-medium text-gray-700">Últimos movimientos</p>
               <span className="text-xs text-gray-400">{movimientos.length} registros</span>
@@ -161,8 +159,8 @@ export default function Home() {
               </p>
             ) : (
               <div className="space-y-1">
-                {movimientos.map(m => (
-                  <div key={m.id} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
+                {movimientos.slice(0, 5).map(m => (
+                  <div key={m.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
                     <div className="flex-1 min-w-0 mr-3">
                       <p className="text-sm text-gray-700 truncate">{m.concepto}</p>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -179,10 +177,16 @@ export default function Home() {
                     </span>
                   </div>
                 ))}
+                {movimientos.length > 5 && (
+                  <p className="text-xs text-center text-gray-400 pt-2">
+                    Ver todos en Movimientos
+                  </p>
+                )}
               </div>
             )}
           </div>
 
+          {/* Socio Chat */}
           <SocioChat />
 
         </div>
