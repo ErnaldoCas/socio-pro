@@ -13,9 +13,7 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
+          getAll() { return cookieStore.getAll() },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
@@ -26,7 +24,26 @@ export async function GET(request: Request) {
     )
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+
     if (!error) {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: colaborador } = await supabase
+          .from('colaboradores')
+          .select('id, user_id')
+          .eq('email', user.email)
+          .is('user_id', null)
+          .single()
+
+        if (colaborador) {
+          await supabase
+            .from('colaboradores')
+            .update({ user_id: user.id, estado: 'activo' })
+            .eq('id', colaborador.id)
+        }
+      }
+
       return NextResponse.redirect(`${origin}/`)
     }
   }
