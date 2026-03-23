@@ -17,7 +17,7 @@ export default function NavBar() {
     <>
       <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-100 z-50">
         <div className="max-w-2xl mx-auto px-4 py-0.5 flex items-center gap-3">
-          <img src="/logo.png" alt="Socio Pro" className="w-28 h-28 rounded-xl object-contain" />
+          <img src="/logo.png" alt="Socio Pro" className="w-21 h-21 rounded-xl object-contain" />
           <div>
             <p className="text-base font-semibold text-gray-800 leading-tight">Socio Pro</p>
             <p className="text-xs text-gray-400 leading-tight">Contabilidad & finanzas simples</p>
