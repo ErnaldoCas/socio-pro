@@ -88,7 +88,7 @@ export default function OcrInventario({ onProductosImportados }) {
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               capture="environment"
               onChange={escanear}
               className="hidden"
