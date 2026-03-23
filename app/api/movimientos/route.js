@@ -19,17 +19,44 @@ async function getSupabase() {
   )
 }
 
-export async function GET() {
+export async function GET(request) {
   const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
 
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url)
+  const colaboradorId = searchParams.get('colaborador_id')
+
+  const { data: negocio } = await supabase
+    .from('negocios')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single()
+
+  const { data: colaborador } = await supabase
+    .from('colaboradores')
+    .select('id, negocio_id')
+    .eq('user_id', user.id)
+    .single()
+
+  let query = supabase
     .from('movimientos')
     .select('*')
-    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
+  if (negocio) {
+    query = query.eq('negocio_id', negocio.id)
+    if (colaboradorId) {
+      query = query.eq('colaborador_id', colaboradorId)
+    }
+  } else if (colaborador) {
+    query = query.eq('negocio_id', colaborador.negocio_id)
+    query = query.eq('colaborador_id', colaborador.id)
+  } else {
+    query = query.eq('user_id', user.id)
+  }
+
+  const { data, error } = await query
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json(data || [])
 }
@@ -40,6 +67,19 @@ export async function POST(request) {
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
 
   const body = await request.json()
+
+  const { data: colaborador } = await supabase
+    .from('colaboradores')
+    .select('id, negocio_id')
+    .eq('user_id', user.id)
+    .single()
+
+  const { data: negocio } = await supabase
+    .from('negocios')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single()
+
   const { data, error } = await supabase
     .from('movimientos')
     .insert([{
@@ -47,7 +87,9 @@ export async function POST(request) {
       monto: body.monto,
       tipo: body.tipo,
       categoria: body.categoria,
-      user_id: user.id
+      user_id: user.id,
+      colaborador_id: colaborador?.id || null,
+      negocio_id: negocio?.id || colaborador?.negocio_id || null
     }])
     .select()
 
