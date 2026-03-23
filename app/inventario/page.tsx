@@ -1,12 +1,14 @@
 'use client'
 import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
+import OcrInventario from '@/components/OcrInventario'
 import { useState, useEffect } from 'react'
 
 export default function Inventario() {
   const [productos, setProductos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [mensajeImport, setMensajeImport] = useState('')
   const [form, setForm] = useState({
     nombre: '',
     stock: '',
@@ -49,17 +51,29 @@ export default function Inventario() {
     setLoading(false)
   }
 
+  function handleImport(n: number) {
+    cargarProductos()
+    setMensajeImport(`${n} producto${n !== 1 ? 's' : ''} importado${n !== 1 ? 's' : ''} correctamente`)
+    setTimeout(() => setMensajeImport(''), 4000)
+  }
+
   const stockBajo = productos.filter(p => p.stock <= p.stock_minimo)
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
           <div className="mb-6 pt-2">
             <h1 className="text-2xl font-semibold text-gray-800">Inventario</h1>
             <p className="text-gray-500 text-sm">Controla tu stock de productos</p>
           </div>
+
+          {mensajeImport && (
+            <div className="bg-green-50 border border-green-100 rounded-xl p-3 mb-4">
+              <p className="text-sm text-green-700">{mensajeImport}</p>
+            </div>
+          )}
 
           {stockBajo.length > 0 && (
             <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-4">
@@ -72,11 +86,13 @@ export default function Inventario() {
             </div>
           )}
 
+          <OcrInventario onProductosImportados={handleImport} />
+
           <button
             onClick={() => setMostrarForm(!mostrarForm)}
             className="w-full bg-green-600 text-white rounded-xl py-3 text-sm font-medium hover:bg-green-700 mb-4"
           >
-            {mostrarForm ? 'Cancelar' : '+ Agregar producto'}
+            {mostrarForm ? 'Cancelar' : '+ Agregar producto manualmente'}
           </button>
 
           {mostrarForm && (
