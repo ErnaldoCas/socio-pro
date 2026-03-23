@@ -3,6 +3,7 @@ import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
 import OcrInventario from '@/components/OcrInventario'
 import { useState, useEffect } from 'react'
+import { useRol } from '@/hooks/useRol'
 
 export default function Inventario() {
   const [productos, setProductos] = useState<any[]>([])
@@ -17,6 +18,9 @@ export default function Inventario() {
     stock_minimo: '5',
     categoria: 'general'
   })
+
+  const { rol, permisos } = useRol()
+  const puedeEditar = rol === 'dueño' || permisos?.editar_inventario === true
 
   useEffect(() => {
     cargarProductos()
@@ -61,12 +65,14 @@ export default function Inventario() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          <div className="mb-6 pt-2">
+          <div className="mb-4 pt-2">
             <h1 className="text-2xl font-semibold text-gray-800">Inventario</h1>
-            <p className="text-gray-500 text-sm">Controla tu stock de productos</p>
+            <p className="text-gray-500 text-sm">
+              {puedeEditar ? 'Controla y edita tu stock' : 'Consulta el stock de productos'}
+            </p>
           </div>
 
           {mensajeImport && (
@@ -86,16 +92,20 @@ export default function Inventario() {
             </div>
           )}
 
-          <OcrInventario onProductosImportados={handleImport} />
+          {puedeEditar && (
+            <OcrInventario onProductosImportados={handleImport} />
+          )}
 
-          <button
-            onClick={() => setMostrarForm(!mostrarForm)}
-            className="w-full bg-green-600 text-white rounded-xl py-3 text-sm font-medium hover:bg-green-700 mb-4"
-          >
-            {mostrarForm ? 'Cancelar' : '+ Agregar producto manualmente'}
-          </button>
+          {puedeEditar && (
+            <button
+              onClick={() => setMostrarForm(!mostrarForm)}
+              className="w-full bg-green-600 text-white rounded-xl py-3 text-sm font-medium hover:bg-green-700 mb-4"
+            >
+              {mostrarForm ? 'Cancelar' : '+ Agregar producto manualmente'}
+            </button>
+          )}
 
-          {mostrarForm && (
+          {mostrarForm && puedeEditar && (
             <div className="bg-white rounded-xl p-5 border border-gray-100 mb-4">
               <p className="text-sm font-medium text-gray-700 mb-4">Nuevo producto</p>
               <div className="space-y-3">
@@ -166,7 +176,7 @@ export default function Inventario() {
             </div>
             {productos.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-8">
-                Aún no hay productos — agrega el primero
+                Aún no hay productos
               </p>
             ) : (
               <div className="divide-y divide-gray-50">
@@ -175,8 +185,13 @@ export default function Inventario() {
                     <div>
                       <p className="text-sm font-medium text-gray-800">{p.nombre}</p>
                       <div className="flex gap-3 mt-1">
-                        <span className="text-xs text-gray-400">Precio: ${p.precio.toLocaleString()}</span>
-                        <span className="text-xs text-gray-400">Costo: ${p.costo.toLocaleString()}</span>
+                        {puedeEditar && (
+                          <>
+                            <span className="text-xs text-gray-400">Precio: ${p.precio.toLocaleString()}</span>
+                            <span className="text-xs text-gray-400">Costo: ${p.costo.toLocaleString()}</span>
+                          </>
+                        )}
+                        <span className="text-xs text-gray-400">{p.categoria || 'general'}</span>
                       </div>
                     </div>
                     <div className="text-right">

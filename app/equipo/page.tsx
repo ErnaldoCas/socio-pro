@@ -2,8 +2,10 @@
 import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
 import { useState, useEffect } from 'react'
+import { useRol } from '@/hooks/useRol'
+import { useRouter } from 'next/navigation'
 
-const PERMISOS_LABELS = {
+const PERMISOS_LABELS: Record<string, string> = {
   registrar_movimientos: 'Registrar movimientos',
   ver_metricas: 'Ver métricas',
   ver_inventario: 'Ver inventario',
@@ -31,6 +33,13 @@ export default function Equipo() {
   const [editando, setEditando] = useState<any>(null)
   const [form, setForm] = useState({ email: '', nombre: '', permisos: PERMISOS_DEFAULT })
   const [mensaje, setMensaje] = useState('')
+
+  const { rol } = useRol()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (rol === 'colaborador') router.push('/')
+  }, [rol])
 
   useEffect(() => {
     cargarDatos()
@@ -115,7 +124,7 @@ export default function Equipo() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
           <div className="mb-4 pt-2">
@@ -129,19 +138,15 @@ export default function Equipo() {
             </div>
           )}
 
-          {/* Nombre del negocio */}
           <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
             <p className="text-xs text-gray-400 mb-1">Nombre del negocio</p>
-            <div className="flex gap-2">
-              <input
-                defaultValue={negocio?.nombre}
-                onBlur={e => actualizarNombre(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-green-400"
-              />
-            </div>
+            <input
+              defaultValue={negocio?.nombre}
+              onBlur={e => actualizarNombre(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-green-400"
+            />
           </div>
 
-          {/* Colaboradores */}
           <div className="bg-white rounded-xl border border-gray-100 mb-4">
             <div className="p-4 border-b border-gray-50 flex justify-between items-center">
               <div>
@@ -167,7 +172,7 @@ export default function Equipo() {
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 placeholder-gray-400 outline-none focus:border-green-400"
                   />
                   <input
-                    placeholder="Email"
+                    placeholder="Email de Google"
                     type="email"
                     value={form.email}
                     onChange={e => setForm({ ...form, email: e.target.value })}
@@ -181,7 +186,7 @@ export default function Equipo() {
                           <span className="text-xs text-gray-700">{label}</span>
                           <input
                             type="checkbox"
-                            checked={form.permisos[key as keyof typeof form.permisos]}
+                            checked={form.permisos[key as keyof typeof PERMISOS_DEFAULT]}
                             onChange={e => setForm({
                               ...form,
                               permisos: { ...form.permisos, [key]: e.target.checked }
@@ -221,7 +226,16 @@ export default function Equipo() {
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-sm font-medium text-gray-800">{c.nombre || c.email}</p>
-                        <p className="text-xs text-gray-400">{c.email}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-gray-400">{c.email}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            c.estado === 'activo'
+                              ? 'bg-green-50 text-green-600'
+                              : 'bg-amber-50 text-amber-600'
+                          }`}>
+                            {c.estado === 'activo' ? 'Activo' : 'Pendiente'}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -270,7 +284,7 @@ export default function Equipo() {
                     <div className="mt-2 flex flex-wrap gap-1">
                       {Object.entries(c.permisos || {}).filter(([, v]) => v).map(([k]) => (
                         <span key={k} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
-                          {PERMISOS_LABELS[k as keyof typeof PERMISOS_LABELS]}
+                          {PERMISOS_LABELS[k]}
                         </span>
                       ))}
                     </div>
