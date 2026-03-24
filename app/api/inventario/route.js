@@ -24,12 +24,37 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
 
-  const { data, error } = await supabase
+  const { data: negocio } = await supabase
+    .from('negocios')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single()
+
+  const { data: colaborador } = await supabase
+    .from('colaboradores')
+    .select('negocio_id')
+    .eq('user_id', user.id)
+    .single()
+
+  let query = supabase
     .from('productos')
     .select('*')
-    .eq('user_id', user.id)
     .order('nombre', { ascending: true })
 
+  if (negocio) {
+    query = query.eq('user_id', user.id)
+  } else if (colaborador) {
+    const { data: dueno } = await supabase
+      .from('negocios')
+      .select('owner_id')
+      .eq('id', colaborador.negocio_id)
+      .single()
+    if (dueno) query = query.eq('user_id', dueno.owner_id)
+  } else {
+    query = query.eq('user_id', user.id)
+  }
+
+  const { data, error } = await query
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json(data || [])
 }
@@ -38,6 +63,16 @@ export async function POST(request) {
   const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
+
+  const { data: colaborador } = await supabase
+    .from('colaboradores')
+    .select('id, permisos, negocio_id')
+    .eq('user_id', user.id)
+    .single()
+
+  if (colaborador && !colaborador.permisos?.editar_inventario) {
+    return Response.json({ error: 'Sin permiso para editar inventario' }, { status: 403 })
+  }
 
   const body = await request.json()
   const { data, error } = await supabase
@@ -62,6 +97,16 @@ export async function PUT(request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
 
+  const { data: colaborador } = await supabase
+    .from('colaboradores')
+    .select('permisos')
+    .eq('user_id', user.id)
+    .single()
+
+  if (colaborador && !colaborador.permisos?.editar_inventario) {
+    return Response.json({ error: 'Sin permiso para editar inventario' }, { status: 403 })
+  }
+
   const body = await request.json()
   const { data, error } = await supabase
     .from('productos')
@@ -72,7 +117,6 @@ export async function PUT(request) {
       stock_minimo: Number(body.stock_minimo) || 5
     })
     .eq('id', body.id)
-    .eq('user_id', user.id)
     .select()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
