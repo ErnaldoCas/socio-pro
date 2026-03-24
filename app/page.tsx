@@ -8,28 +8,42 @@ import HealthScore from '@/components/HealthScore'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { parsearMovimiento } from '@/lib/nlpParser'
+import { useRol } from '@/hooks/useRol'
 
 export default function Home() {
   const [input, setInput] = useState('')
   const [movimientos, setMovimientos] = useState<any[]>([])
+  const [colaboradores, setColaboradores] = useState<any[]>([])
+  const [filtroColaborador, setFiltroColaborador] = useState('todos')
   const [loading, setLoading] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [mensajeError, setMensajeError] = useState(false)
   const [tipoDetectado, setTipoDetectado] = useState('')
 
   const supabase = createClient()
+  const { rol, permisos } = useRol()
+  const esDueno = rol === 'dueño'
+  const puedeRegistrar = esDueno || permisos?.registrar_movimientos === true
 
   useEffect(() => {
     cargarMovimientos()
-  }, [])
+    if (esDueno) cargarColaboradores()
+  }, [filtroColaborador, rol])
+
+  async function cargarColaboradores() {
+    const res = await fetch('/api/negocio')
+    const data = await res.json()
+    setColaboradores(data.colaboradores?.filter((c: any) => c.estado === 'activo') || [])
+  }
 
   async function cargarMovimientos() {
-    const { data } = await supabase
-      .from('movimientos')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20)
-    setMovimientos(data || [])
+    let url = '/api/movimientos'
+    if (esDueno && filtroColaborador !== 'todos') {
+      url += `?colaborador_id=${filtroColaborador}`
+    }
+    const res = await fetch(url)
+    const data = await res.json()
+    setMovimientos(Array.isArray(data) ? data.slice(0, 20) : [])
   }
 
   function handleInput(texto: string) {
@@ -84,7 +98,43 @@ export default function Home() {
       <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          {/* Métricas principales */}
+          {/* Filtro por colaborador — solo dueño */}
+          {esDueno && colaboradores.length > 0 && (
+            <div className="mb-4 mt-2">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <button
+                  onClick={() => setFiltroColaborador('todos')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+                    filtroColaborador === 'todos'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white text-gray-500 border border-gray-200'
+                  }`}
+                >
+                  Todo el negocio
+                </button>
+                {colaboradores.map((c: any) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setFiltroColaborador(c.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+                      filtroColaborador === c.id
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-500 border border-gray-200'
+                    }`}
+                  >
+                    {c.nombre || c.email}
+                  </button>
+                ))}
+              </div>
+              {filtroColaborador !== 'todos' && (
+                <p className="text-xs text-gray-400 mt-1.5 ml-1">
+                  Viendo movimientos de {colaboradores.find(c => c.id === filtroColaborador)?.nombre || 'colaborador'}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Métricas */}
           <div className="grid grid-cols-3 gap-3 mb-4 mt-2">
             <div className="bg-white rounded-xl p-4 border border-gray-100">
               <p className="text-xs text-gray-400 mb-1">Ingresos</p>
@@ -103,43 +153,45 @@ export default function Home() {
           </div>
 
           {/* Smart Entry */}
-          <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
-            <div className="flex justify-between items-center mb-3">
-              <p className="text-sm font-medium text-gray-700">Registrar movimiento</p>
-              {tipoDetectado && (
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                  tipoDetectado === 'ingreso'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-600'
-                }`}>
-                  {tipoDetectado === 'ingreso' ? '+ Ingreso' : '- Egreso'}
-                </span>
+          {puedeRegistrar && (
+            <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
+              <div className="flex justify-between items-center mb-3">
+                <p className="text-sm font-medium text-gray-700">Registrar movimiento</p>
+                {tipoDetectado && (
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                    tipoDetectado === 'ingreso'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-600'
+                  }`}>
+                    {tipoDetectado === 'ingreso' ? '+ Ingreso' : '- Egreso'}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={e => handleInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && registrar()}
+                  placeholder='Ej: "vendí completos 5000"'
+                  className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
+                />
+                <VoiceInput onResult={(texto: string) => handleInput(texto)} />
+              </div>
+              <button
+                onClick={registrar}
+                disabled={loading}
+                className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {loading ? 'Registrando...' : 'Registrar'}
+              </button>
+              {mensaje && (
+                <p className={`text-xs mt-2 text-center ${mensajeError ? 'text-red-500' : 'text-green-600'}`}>
+                  {mensaje}
+                </p>
               )}
             </div>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={input}
-                onChange={e => handleInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && registrar()}
-                placeholder='Ej: "vendí completos 5000"'
-                className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
-              />
-              <VoiceInput onResult={(texto: string) => handleInput(texto)} />
-            </div>
-            <button
-              onClick={registrar}
-              disabled={loading}
-              className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 active:scale-95 transition-all disabled:opacity-50"
-            >
-              {loading ? 'Registrando...' : 'Registrar'}
-            </button>
-            {mensaje && (
-              <p className={`text-xs mt-2 text-center ${mensajeError ? 'text-red-500' : 'text-green-600'}`}>
-                {mensaje}
-              </p>
-            )}
-          </div>
+          )}
 
           {/* Health Score */}
           <HealthScore movimientos={movimientos} />
@@ -155,7 +207,7 @@ export default function Home() {
             </div>
             {movimientos.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-6">
-                Aún no hay movimientos — registra el primero arriba
+                Aún no hay movimientos
               </p>
             ) : (
               <div className="space-y-1">
