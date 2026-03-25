@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 
-function formatearRespuesta(content) {
+function formatearRespuesta(content: string) {
   const tieneFormato = content.includes('🎓 EXPERTO') || content.includes('🤝 SOCIO') || content.includes('📚 APRENDE HOY')
   if (!tieneFormato) return <p className="text-sm text-gray-800 leading-relaxed">{content}</p>
 
@@ -74,7 +74,7 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const messagesEndRef = useRef(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (suggestion) {
