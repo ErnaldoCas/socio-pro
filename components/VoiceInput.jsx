@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 
-export default function VoiceInput({ onResult }) {
+export default function VoiceInput({ onResult, inputRef }) {
   const [escuchando, setEscuchando] = useState(false)
   const [error, setError] = useState('')
   const [intentos, setIntentos] = useState(0)
@@ -38,26 +38,32 @@ export default function VoiceInput({ onResult }) {
       setIntentos(0)
       setError('')
       onResult(texto)
+
+      // ✅ Fuerza foco en el input para que el texto sea visible en móvil
+      setTimeout(() => {
+        if (inputRef?.current) {
+          inputRef.current.focus()
+        }
+      }, 100)
     }
 
     recognition.onerror = (event) => {
       setEscuchando(false)
 
       if (event.error === 'network') {
-        // Reintenta automáticamente hasta 2 veces
         if (intentos < 2) {
           setIntentos(prev => prev + 1)
           setError('Reintentando...')
           setTimeout(() => iniciar(), 800)
         } else {
           setIntentos(0)
-          setError('Error de red. Verifica tu conexión e intenta de nuevo.')
+          setError('Error de red. Intenta de nuevo.')
         }
         return
       }
 
       if (event.error === 'not-allowed') {
-        setError('Permiso denegado. Actívalo en Ajustes del navegador.')
+        setError('Permiso denegado. Actívalo en Ajustes.')
         return
       }
 
@@ -66,12 +72,7 @@ export default function VoiceInput({ onResult }) {
         return
       }
 
-      if (event.error === 'audio-capture') {
-        setError('No se detectó micrófono en el dispositivo.')
-        return
-      }
-
-      setError('No se pudo usar el micrófono. Intenta de nuevo.')
+      setError('No se pudo usar el micrófono.')
     }
 
     try {
