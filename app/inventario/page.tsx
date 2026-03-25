@@ -10,6 +10,7 @@ export default function Inventario() {
   const [loading, setLoading] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [mensajeImport, setMensajeImport] = useState('')
+  const [ajustando, setAjustando] = useState<string | null>(null) // id del producto ajustándose
   const [form, setForm] = useState({
     nombre: '',
     stock: '',
@@ -55,6 +56,27 @@ export default function Inventario() {
     setLoading(false)
   }
 
+  async function ajustarStock(id: string, delta: number) {
+    setAjustando(id)
+
+    await fetch('/api/inventario', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, delta })
+    })
+
+    // Actualiza el stock localmente para respuesta inmediata sin esperar el fetch
+    setProductos(prev =>
+      prev.map(p =>
+        p.id === id
+          ? { ...p, stock: Math.max(0, p.stock + delta) }
+          : p
+      )
+    )
+
+    setAjustando(null)
+  }
+
   function handleImport(n: number) {
     cargarProductos()
     setMensajeImport(`${n} producto${n !== 1 ? 's' : ''} importado${n !== 1 ? 's' : ''} correctamente`)
@@ -65,7 +87,7 @@ export default function Inventario() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
           <div className="mb-4 pt-2">
@@ -174,6 +196,7 @@ export default function Inventario() {
                 <span className="text-xs text-gray-400">{productos.length} productos</span>
               </div>
             </div>
+
             {productos.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-8">
                 Aún no hay productos
@@ -181,10 +204,12 @@ export default function Inventario() {
             ) : (
               <div className="divide-y divide-gray-50">
                 {productos.map(p => (
-                  <div key={p.id} className="p-4 flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{p.nombre}</p>
-                      <div className="flex gap-3 mt-1">
+                  <div key={p.id} className="p-4 flex justify-between items-center gap-3">
+
+                    {/* Info del producto */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{p.nombre}</p>
+                      <div className="flex gap-3 mt-1 flex-wrap">
                         {puedeEditar && (
                           <>
                             <span className="text-xs text-gray-400">Precio: ${p.precio.toLocaleString()}</span>
@@ -194,14 +219,39 @@ export default function Inventario() {
                         <span className="text-xs text-gray-400">{p.categoria || 'general'}</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`text-sm font-semibold ${p.stock <= p.stock_minimo ? 'text-red-500' : 'text-gray-700'}`}>
-                        {p.stock} u.
-                      </span>
-                      {p.stock <= p.stock_minimo && (
-                        <p className="text-xs text-red-400">stock bajo</p>
+
+                    {/* Stock + botones +/- */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="text-right mr-1">
+                        <span className={`text-sm font-semibold ${p.stock <= p.stock_minimo ? 'text-red-500' : 'text-gray-700'}`}>
+                          {p.stock} u.
+                        </span>
+                        {p.stock <= p.stock_minimo && (
+                          <p className="text-xs text-red-400">stock bajo</p>
+                        )}
+                      </div>
+
+                      {/* Botones solo si puede editar */}
+                      {puedeEditar && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => ajustarStock(p.id, -1)}
+                            disabled={ajustando === p.id || p.stock === 0}
+                            className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 text-base font-medium hover:bg-red-50 hover:text-red-500 disabled:opacity-30 transition-colors flex items-center justify-center"
+                          >
+                            −
+                          </button>
+                          <button
+                            onClick={() => ajustarStock(p.id, +1)}
+                            disabled={ajustando === p.id}
+                            className="w-7 h-7 rounded-lg bg-gray-100 text-gray-600 text-base font-medium hover:bg-green-50 hover:text-green-600 disabled:opacity-30 transition-colors flex items-center justify-center"
+                          >
+                            +
+                          </button>
+                        </div>
                       )}
                     </div>
+
                   </div>
                 ))}
               </div>

@@ -2,10 +2,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { RolProvider } from '@/contexts/RolContext'
 
-export default function AuthGuard({ children }) {
+export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
-  const [session, setSession] = useState(null)
+  const [session, setSession] = useState<any>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -45,5 +46,9 @@ export default function AuthGuard({ children }) {
 
   if (!session) return null
 
-  return <>{children}</>
+  return (
+    <RolProvider>
+      {children}
+    </RolProvider>
+  )
 }

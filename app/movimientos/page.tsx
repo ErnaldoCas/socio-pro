@@ -6,6 +6,10 @@ import { useState, useEffect } from 'react'
 export default function Movimientos() {
   const [movimientos, setMovimientos] = useState<any[]>([])
   const [filtro, setFiltro] = useState('todos')
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ concepto: '', monto: '', tipo: '', categoria: '' })
+  const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
     cargarMovimientos()
@@ -19,6 +23,38 @@ export default function Movimientos() {
 
   async function eliminar(id: string) {
     await fetch(`/api/movimientos?id=${id}`, { method: 'DELETE' })
+    setConfirmandoId(null)
+    cargarMovimientos()
+  }
+
+  function iniciarEdicion(m: any) {
+    setEditandoId(m.id)
+    setEditForm({
+      concepto: m.concepto,
+      monto: String(m.monto),
+      tipo: m.tipo,
+      categoria: m.categoria || 'general'
+    })
+  }
+
+  async function guardarEdicion(id: string) {
+    if (!editForm.concepto.trim() || !editForm.monto) return
+    setGuardando(true)
+
+    await fetch('/api/movimientos', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id,
+        concepto: editForm.concepto,
+        monto: Number(editForm.monto),
+        tipo: editForm.tipo,
+        categoria: editForm.categoria
+      })
+    })
+
+    setEditandoId(null)
+    setGuardando(false)
     cargarMovimientos()
   }
 
@@ -37,7 +73,7 @@ export default function Movimientos() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
           <div className="mb-6 pt-2">
@@ -84,31 +120,124 @@ export default function Movimientos() {
             ) : (
               <div className="divide-y divide-gray-50">
                 {filtrados.map(m => (
-                  <div key={m.id} className="p-4 flex justify-between items-center">
-                    <div className="flex-1 min-w-0 mr-3">
-                      <p className="text-sm text-gray-800 truncate">{m.concepto}</p>
-                      <div className="flex gap-2 mt-0.5">
-                        {m.categoria && (
-                          <span className="text-xs text-gray-400">{m.categoria}</span>
-                        )}
-                        <span className="text-xs text-gray-300">
-                          {new Date(m.created_at).toLocaleDateString('es-CL', {
-                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                          })}
-                        </span>
+                  <div key={m.id}>
+
+                    {/* ── Modo edición ── */}
+                    {editandoId === m.id ? (
+                      <div className="p-4 bg-gray-50">
+                        <p className="text-xs font-medium text-gray-600 mb-3">Editar movimiento</p>
+                        <div className="space-y-2">
+                          <input
+                            value={editForm.concepto}
+                            onChange={e => setEditForm({ ...editForm, concepto: e.target.value })}
+                            placeholder="Concepto"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-green-400 bg-white"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="number"
+                              value={editForm.monto}
+                              onChange={e => setEditForm({ ...editForm, monto: e.target.value })}
+                              placeholder="Monto"
+                              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-green-400 bg-white"
+                            />
+                            <select
+                              value={editForm.tipo}
+                              onChange={e => setEditForm({ ...editForm, tipo: e.target.value })}
+                              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-green-400 bg-white"
+                            >
+                              <option value="ingreso">Ingreso</option>
+                              <option value="egreso">Egreso</option>
+                            </select>
+                          </div>
+                          <select
+                            value={editForm.categoria}
+                            onChange={e => setEditForm({ ...editForm, categoria: e.target.value })}
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 outline-none focus:border-green-400 bg-white"
+                          >
+                            <option value="general">General</option>
+                            <option value="alimentación">Alimentación</option>
+                            <option value="insumos">Insumos</option>
+                            <option value="servicios">Servicios</option>
+                            <option value="personal">Personal</option>
+                            <option value="transporte">Transporte</option>
+                            <option value="marketing">Marketing</option>
+                          </select>
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            <button
+                              onClick={() => setEditandoId(null)}
+                              className="border border-gray-200 text-gray-500 rounded-lg py-2 text-sm hover:bg-gray-100"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={() => guardarEdicion(m.id)}
+                              disabled={guardando}
+                              className="bg-green-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {guardando ? 'Guardando...' : 'Guardar'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm font-medium ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>
-                        {m.tipo === 'ingreso' ? '+' : '-'}${m.monto.toLocaleString()}
-                      </span>
-                      <button
-                        onClick={() => eliminar(m.id)}
-                        className="text-gray-300 hover:text-red-400 transition-colors text-xs"
-                      >
-                        ✕
-                      </button>
-                    </div>
+
+                    /* ── Modo confirmación eliminar ── */
+                    ) : confirmandoId === m.id ? (
+                      <div className="p-4 bg-red-50">
+                        <p className="text-sm text-red-700 font-medium mb-1">¿Eliminar este movimiento?</p>
+                        <p className="text-xs text-red-500 mb-3 truncate">{m.concepto} — ${m.monto.toLocaleString()}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => setConfirmandoId(null)}
+                            className="border border-gray-200 text-gray-500 rounded-lg py-2 text-sm hover:bg-gray-100 bg-white"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => eliminar(m.id)}
+                            className="bg-red-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-red-600"
+                          >
+                            Sí, eliminar
+                          </button>
+                        </div>
+                      </div>
+
+                    /* ── Vista normal ── */
+                    ) : (
+                      <div className="p-4 flex justify-between items-center">
+                        <div className="flex-1 min-w-0 mr-3">
+                          <p className="text-sm text-gray-800 truncate">{m.concepto}</p>
+                          <div className="flex gap-2 mt-0.5">
+                            {m.categoria && (
+                              <span className="text-xs text-gray-400">{m.categoria}</span>
+                            )}
+                            <span className="text-xs text-gray-300">
+                              {new Date(m.created_at).toLocaleDateString('es-CL', {
+                                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`text-sm font-medium ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>
+                            {m.tipo === 'ingreso' ? '+' : '-'}${m.monto.toLocaleString()}
+                          </span>
+                          <button
+                            onClick={() => iniciarEdicion(m)}
+                            className="text-xs text-blue-500 border border-blue-100 bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => setConfirmandoId(m.id)}
+                            className="text-xs text-red-400 border border-red-100 bg-red-50 px-2 py-1 rounded-lg hover:bg-red-100 transition-colors"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 ))}
               </div>

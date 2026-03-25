@@ -122,3 +122,59 @@ export async function PUT(request) {
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json(data[0])
 }
+
+export async function PATCH(request) {
+  const supabase = await getSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
+
+  const { data: colaborador } = await supabase
+    .from('colaboradores')
+    .select('permisos')
+    .eq('user_id', user.id)
+    .single()
+
+  if (colaborador && !colaborador.permisos?.editar_inventario) {
+    return Response.json({ error: 'Sin permiso para editar inventario' }, { status: 403 })
+  }
+
+  const body = await request.json()
+  const { id, delta } = body
+
+  const { data: producto } = await supabase
+    .from('productos')
+    .select('stock')
+    .eq('id', id)
+    .single()
+
+  if (!producto) return Response.json({ error: 'Producto no encontrado' }, { status: 404 })
+
+  const nuevoStock = Math.max(0, producto.stock + delta)
+
+  const { data, error } = await supabase
+    .from('productos')
+    .update({ stock: nuevoStock })
+    .eq('id', id)
+    .select()
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json(data[0])
+}
+
+export async function DELETE(request) {
+  const supabase = await getSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+
+  const { error } = await supabase
+    .from('productos')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json({ success: true })
+}

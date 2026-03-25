@@ -25,11 +25,18 @@ export default function NavBar() {
 
   return (
     <>
+      {/* ✅ Header con logo más grande y prominente */}
       <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-100 z-50">
-        <div className="max-w-2xl mx-auto px-4 py-0.5 flex items-center gap-3">
-          <img src="/logo.png" alt="Socio Pro" className="w-10 h-10 rounded-xl object-contain" />
+        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center gap-3">
+          <div className="relative flex-shrink-0">
+            <img
+              src="/logo.png"
+              alt="Socio Pro"
+              className="w-14 h-14 rounded-2xl object-contain shadow-sm border border-gray-100"
+            />
+          </div>
           <div>
-            <p className="text-base font-semibold text-gray-800 leading-tight">Socio Pro</p>
+            <p className="text-lg font-bold text-gray-900 leading-tight tracking-tight">Socio Pro</p>
             <p className="text-xs text-gray-400 leading-tight">
               {rol === 'colaborador' ? 'Colaborador' : 'Contabilidad & finanzas simples'}
             </p>

@@ -46,26 +46,30 @@ export default function OcrInventario({ onProductosImportados }) {
 
   async function guardarTodos() {
     setGuardando(true)
-    let exitosos = 0
 
-    for (const p of productos) {
-      const res = await fetch('/api/inventario', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(p)
-      })
-      if (res.ok) exitosos++
-    }
+    const resultados = await Promise.all(
+      productos.map(p =>
+        fetch('/api/inventario', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(p)
+        }).then(res => res.ok)
+      )
+    )
+
+    const exitosos = resultados.filter(Boolean).length
 
     setGuardando(false)
     setPaso('inicio')
     setProductos([])
+    if (fileRef.current) fileRef.current.value = ''
     onProductosImportados(exitosos)
   }
 
   function reiniciar() {
     setPaso('inicio')
     setProductos([])
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const colorConfianza = confianza === 'alta'

@@ -5,8 +5,7 @@ import NavBar from '@/components/NavBar'
 import VoiceInput from '@/components/VoiceInput'
 import Graficos from '@/components/Graficos'
 import HealthScore from '@/components/HealthScore'
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useState, useEffect, useRef } from 'react'
 import { parsearMovimiento } from '@/lib/nlpParser'
 import { useRol } from '@/hooks/useRol'
 
@@ -20,10 +19,13 @@ export default function Home() {
   const [mensajeError, setMensajeError] = useState(false)
   const [tipoDetectado, setTipoDetectado] = useState('')
 
-  const supabase = createClient()
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+
   const { rol, permisos } = useRol()
   const esDueno = rol === 'dueño'
-  const puedeRegistrar = esDueno || permisos?.registrar_movimientos === true
+
+  // ✅ !rol cubre el estado de carga — así el input aparece siempre
+  const puedeRegistrar = !rol || esDueno || permisos?.registrar_movimientos === true
 
   useEffect(() => {
     cargarMovimientos()
@@ -48,9 +50,14 @@ export default function Home() {
 
   function handleInput(texto: string) {
     setInput(texto)
+
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
     if (texto.length > 3) {
-      const { tipo } = parsearMovimiento(texto)
-      setTipoDetectado(tipo)
+      debounceRef.current = setTimeout(() => {
+        const { tipo } = parsearMovimiento(texto)
+        setTipoDetectado(tipo)
+      }, 200)
     } else {
       setTipoDetectado('')
     }

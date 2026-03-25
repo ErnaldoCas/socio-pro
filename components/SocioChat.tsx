@@ -68,7 +68,7 @@ function formatearRespuesta(content) {
   return <div>{bloques}</div>
 }
 
-export default function SocioChat({ inputId = 'socio-input' }) {
+export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: '¡Hola! Soy tu Socio Experto. Cada respuesta tiene 3 partes: análisis profesional, explicación simple y un término para aprender. ¡Pregúntame lo que quieras!' }
   ])
@@ -77,10 +77,16 @@ export default function SocioChat({ inputId = 'socio-input' }) {
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
+    if (suggestion) {
+      setInput(suggestion)
+    }
+  }, [suggestion])
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function enviar(texto) {
+  async function enviar(texto?: string) {
     const msg = texto || input
     if (!msg.trim() || loading) return
     const userMsg = { role: 'user', content: msg }

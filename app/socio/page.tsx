@@ -3,11 +3,14 @@ import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
 import SocioChat from '@/components/SocioChat'
 import AnalisisProfundo from '@/components/AnalisisProfundo'
+import { useState } from 'react'
 
 export default function Socio() {
+  const [sugerencia, setSugerencia] = useState('')
+
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
           <div className="mb-6 pt-2">
@@ -29,13 +32,7 @@ export default function Socio() {
               ].map((q, i) => (
                 <button
                   key={i}
-                  onClick={() => {
-                    const input = document.querySelector('#socio-input') as HTMLInputElement
-                    if (input) {
-                      input.value = q
-                      input.dispatchEvent(new Event('input', { bubbles: true }))
-                    }
-                  }}
+                  onClick={() => setSugerencia(q)}
                   className="text-xs bg-white border border-amber-200 text-amber-700 px-3 py-1.5 rounded-full hover:bg-amber-100 transition-all"
                 >
                   {q}
@@ -44,7 +41,7 @@ export default function Socio() {
             </div>
           </div>
 
-          <SocioChat inputId="socio-input" />
+          <SocioChat inputId="socio-input" suggestion={sugerencia} />
 
         </div>
       </main>
