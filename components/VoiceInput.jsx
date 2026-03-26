@@ -1,78 +1,114 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 export default function VoiceInput({ onResult }) {
-  const [escuchando, setEscuchando] = useState(false)
+  const [estado, setEstado] = useState('idle') // idle | grabando | procesando
   const [error, setError] = useState('')
+  const mediaRecorderRef = useRef(null)
+  const chunksRef = useRef([])
 
-  function toggleVoz() {
+  async function iniciarGrabacion() {
     setError('')
 
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      setError('Usa Chrome para usar el micrófono.')
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Tu navegador no soporta grabación de audio.')
       return
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    const recognition = new SpeechRecognition()
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
-    recognition.lang = 'es-CL'
-    recognition.continuous = false
-    recognition.interimResults = false
-    recognition.maxAlternatives = 1
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      })
 
-    recognition.onstart = () => {
-      setEscuchando(true)
-      setError('')
-    }
+      mediaRecorderRef.current = mediaRecorder
+      chunksRef.current = []
 
-    recognition.onend = () => {
-      setEscuchando(false)
-    }
-
-    recognition.onresult = (event) => {
-      const texto = event.results[0][0].transcript
-      // ✅ Pequeño delay para que Android Chrome termine de cerrar el micrófono
-      // antes de actualizar el estado de React
-      setTimeout(() => {
-        onResult(texto)
-      }, 150)
-    }
-
-    recognition.onerror = (event) => {
-      setEscuchando(false)
-      if (event.error === 'not-allowed') {
-        setError('Permiso denegado. Actívalo en ajustes.')
-      } else if (event.error === 'no-speech') {
-        setError('No se detectó voz.')
-      } else if (event.error === 'network') {
-        setError('Error de red. Intenta de nuevo.')
-      } else {
-        setError('Error: ' + event.error)
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data)
+        }
       }
-    }
 
-    recognition.start()
+      mediaRecorder.onstop = async () => {
+        // Detiene todos los tracks del micrófono
+        stream.getTracks().forEach(t => t.stop())
+
+        setEstado('procesando')
+
+        const blob = new Blob(chunksRef.current, {
+          type: mediaRecorder.mimeType
+        })
+
+        try {
+          const formData = new FormData()
+          formData.append('audio', blob, 'audio.webm')
+
+          const res = await fetch('/api/voz', {
+            method: 'POST',
+            body: formData
+          })
+
+          const data = await res.json()
+
+          if (data.texto) {
+            onResult(data.texto)
+            setError('')
+          } else {
+            setError('No se entendió. Intenta de nuevo.')
+          }
+        } catch {
+          setError('Error al procesar el audio.')
+        }
+
+        setEstado('idle')
+      }
+
+      mediaRecorder.start()
+      setEstado('grabando')
+
+    } catch (err) {
+      setError('Permiso de micrófono denegado.')
+      setEstado('idle')
+    }
+  }
+
+  function detenerGrabacion() {
+    if (mediaRecorderRef.current && estado === 'grabando') {
+      mediaRecorderRef.current.stop()
+    }
   }
 
   return (
     <div className="flex flex-col items-end gap-1">
       <button
-        onClick={toggleVoz}
+        onClick={estado === 'grabando' ? detenerGrabacion : iniciarGrabacion}
+        disabled={estado === 'procesando'}
         type="button"
-        disabled={escuchando}
         className={`p-2.5 rounded-lg border text-sm transition-all ${
-          escuchando
+          estado === 'grabando'
             ? 'bg-red-50 border-red-300 text-red-500 animate-pulse'
+            : estado === 'procesando'
+            ? 'bg-blue-50 border-blue-200 text-blue-400'
             : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
         }`}
+        title={
+          estado === 'grabando' ? 'Toca para detener'
+          : estado === 'procesando' ? 'Procesando...'
+          : 'Toca para hablar'
+        }
       >
-        {escuchando ? '🔴' : '🎤'}
+        {estado === 'grabando' ? '🔴' : estado === 'procesando' ? '⏳' : '🎤'}
       </button>
-      {error && (
-        <p className="text-xs text-red-400 max-w-40 text-right leading-tight">
-          {error}
-        </p>
+      {estado === 'grabando' && (
+        <p className="text-xs text-red-400 text-right">Grabando... toca para detener</p>
+      )}
+      {estado === 'procesando' && (
+        <p className="text-xs text-blue-400 text-right">Procesando...</p>
+      )}
+      {error && estado === 'idle' && (
+        <p className="text-xs text-red-400 max-w-40 text-right leading-tight">{error}</p>
       )}
     </div>
   )
