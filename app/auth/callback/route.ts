@@ -10,7 +10,6 @@ export async function GET(request: Request) {
   if (code) {
     const cookieStore = await cookies()
 
-    // Cliente normal para manejar la sesión del usuario
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -33,21 +32,21 @@ export async function GET(request: Request) {
 
       if (user?.email) {
 
-        // ✅ Cliente admin con service role — saltea RLS completamente
+        // ✅ Admin client — saltea RLS completamente
         const admin = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
 
-        // Busca colaborador por email (case insensitive)
+        // Busca colaborador por email sin importar mayúsculas
         const { data: colaborador } = await admin
           .from('colaboradores')
-          .select('id, user_id, estado')
+          .select('id, user_id, estado, negocio_id')
           .ilike('email', user.email)
           .maybeSingle()
 
         if (colaborador) {
-          // ✅ Actualiza con admin — sin restricciones de RLS
+          // ✅ Vincula colaborador y lo pone activo
           await admin
             .from('colaboradores')
             .update({
@@ -56,17 +55,18 @@ export async function GET(request: Request) {
             })
             .eq('id', colaborador.id)
 
+          // ✅ NO crea negocio — es colaborador, no dueño
           return NextResponse.redirect(`${origin}/`)
         }
 
-        // Si no es colaborador, verifica si ya tiene negocio
+        // No es colaborador — verifica si ya tiene negocio propio
         const { data: negocio } = await admin
           .from('negocios')
           .select('id')
           .eq('owner_id', user.id)
           .maybeSingle()
 
-        // Si no tiene negocio, lo crea
+        // Solo crea negocio si no tiene ninguno
         if (!negocio) {
           await admin
             .from('negocios')
