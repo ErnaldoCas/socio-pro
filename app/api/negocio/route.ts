@@ -5,8 +5,8 @@ import { cookies } from 'next/headers'
 async function getSupabase() {
   const cookieStore = await cookies()
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
@@ -26,11 +26,10 @@ export async function GET() {
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
 
   const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Primero verifica si es colaborador
   const { data: esColaborador } = await admin
     .from('colaboradores')
     .select('id, negocio_id, permisos, nombre, email, estado')
@@ -52,7 +51,6 @@ export async function GET() {
     })
   }
 
-  // Es dueño — busca o crea su negocio
   let { data: negocio } = await admin
     .from('negocios')
     .select('*')
@@ -71,7 +69,7 @@ export async function GET() {
   const { data: colaboradores } = await admin
     .from('colaboradores')
     .select('*')
-    .eq('negocio_id', negocio.id)
+    .eq('negocio_id', negocio!.id)
 
   return Response.json({
     negocio,
@@ -80,14 +78,14 @@ export async function GET() {
   })
 }
 
-export async function POST(request) {
+export async function POST(request: Request) {
   const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
 
   const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   const body = await request.json()
@@ -111,10 +109,9 @@ export async function POST(request) {
 
     if (!negocio) return Response.json({ error: 'No tienes un negocio' }, { status: 400 })
 
-    // Busca si ya existe un usuario con ese email en auth
     const { data: usuarios } = await admin.auth.admin.listUsers()
     const usuarioExistente = usuarios?.users?.find(
-      u => u.email?.toLowerCase() === body.email?.toLowerCase()
+      (u: any) => u.email?.toLowerCase() === body.email?.toLowerCase()
     )
 
     const { data, error } = await admin
