@@ -10,7 +10,7 @@ export default function Inventario() {
   const [loading, setLoading] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [mensajeImport, setMensajeImport] = useState('')
-  const [ajustando, setAjustando] = useState<string | null>(null) // id del producto ajustándose
+  const [ajustando, setAjustando] = useState<string | null>(null)
   const [form, setForm] = useState({
     nombre: '',
     stock: '',
@@ -21,7 +21,9 @@ export default function Inventario() {
   })
 
   const { rol, permisos } = useRol()
-  const puedeEditar = rol === 'dueño' || permisos?.editar_inventario === true
+
+  // ✅ !rol cubre el estado de carga igual que en Home
+  const puedeEditar = !rol || rol === 'dueño' || permisos?.editar_inventario === true
 
   useEffect(() => {
     cargarProductos()
@@ -65,7 +67,6 @@ export default function Inventario() {
       body: JSON.stringify({ id, delta })
     })
 
-    // Actualiza el stock localmente para respuesta inmediata sin esperar el fetch
     setProductos(prev =>
       prev.map(p =>
         p.id === id
@@ -114,6 +115,7 @@ export default function Inventario() {
             </div>
           )}
 
+          {/* ✅ Escáner OCR — aparece siempre que puedeEditar */}
           {puedeEditar && (
             <OcrInventario onProductosImportados={handleImport} />
           )}
@@ -205,8 +207,6 @@ export default function Inventario() {
               <div className="divide-y divide-gray-50">
                 {productos.map(p => (
                   <div key={p.id} className="p-4 flex justify-between items-center gap-3">
-
-                    {/* Info del producto */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">{p.nombre}</p>
                       <div className="flex gap-3 mt-1 flex-wrap">
@@ -220,7 +220,6 @@ export default function Inventario() {
                       </div>
                     </div>
 
-                    {/* Stock + botones +/- */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <div className="text-right mr-1">
                         <span className={`text-sm font-semibold ${p.stock <= p.stock_minimo ? 'text-red-500' : 'text-gray-700'}`}>
@@ -231,7 +230,6 @@ export default function Inventario() {
                         )}
                       </div>
 
-                      {/* Botones solo si puede editar */}
                       {puedeEditar && (
                         <div className="flex items-center gap-1">
                           <button
@@ -251,7 +249,6 @@ export default function Inventario() {
                         </div>
                       )}
                     </div>
-
                   </div>
                 ))}
               </div>
