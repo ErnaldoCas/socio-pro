@@ -20,8 +20,6 @@ export default function Home() {
   const [tipoDetectado, setTipoDetectado] = useState('')
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
-  // ✅ Ref del input para pasarle a VoiceInput y forzar foco en móvil
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const { rol, permisos } = useRol()
   const esDueno = rol === 'dueño'
@@ -175,9 +173,7 @@ export default function Home() {
                 )}
               </div>
               <div className="flex gap-2 mb-3">
-                {/* ✅ ref agregado al input */}
                 <input
-                  ref={inputRef}
                   type="text"
                   value={input}
                   onChange={e => handleInput(e.target.value)}
@@ -185,11 +181,7 @@ export default function Home() {
                   placeholder='Ej: "vendí completos 5000"'
                   className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
                 />
-                {/* ✅ inputRef pasado a VoiceInput */}
-                <VoiceInput
-                  onResult={(texto: string) => handleInput(texto)}
-                  inputRef={inputRef}
-                />
+                <VoiceInput onResult={handleInput} />
               </div>
               <button
                 onClick={registrar}
