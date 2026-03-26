@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
@@ -8,6 +9,8 @@ export async function GET(request: Request) {
 
   if (code) {
     const cookieStore = await cookies()
+
+    // Cliente normal para manejar la sesión del usuario
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,16 +33,22 @@ export async function GET(request: Request) {
 
       if (user?.email) {
 
-        // ✅ maybeSingle() no lanza error si no encuentra nada
-        const { data: colaborador } = await supabase
+        // ✅ Cliente admin con service role — saltea RLS completamente
+        const admin = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+
+        // Busca colaborador por email (case insensitive)
+        const { data: colaborador } = await admin
           .from('colaboradores')
           .select('id, user_id, estado')
-          .eq('email', user.email.toLowerCase())
+          .ilike('email', user.email)
           .maybeSingle()
 
         if (colaborador) {
-          // ✅ Actualiza siempre — tanto pendiente como activo
-          const { error: updateError } = await supabase
+          // ✅ Actualiza con admin — sin restricciones de RLS
+          await admin
             .from('colaboradores')
             .update({
               user_id: user.id,
@@ -47,17 +56,11 @@ export async function GET(request: Request) {
             })
             .eq('id', colaborador.id)
 
-          // Si hubo error al actualizar, lo logueamos pero no bloqueamos
-          if (updateError) {
-            console.error('Error actualizando colaborador:', updateError.message)
-          }
-
-          // Colaborador vinculado — va directo al inicio
           return NextResponse.redirect(`${origin}/`)
         }
 
-        // ✅ Si no es colaborador, verifica si ya tiene negocio
-        const { data: negocio } = await supabase
+        // Si no es colaborador, verifica si ya tiene negocio
+        const { data: negocio } = await admin
           .from('negocios')
           .select('id')
           .eq('owner_id', user.id)
@@ -65,7 +68,7 @@ export async function GET(request: Request) {
 
         // Si no tiene negocio, lo crea
         if (!negocio) {
-          await supabase
+          await admin
             .from('negocios')
             .insert([{ owner_id: user.id, nombre: 'Mi Negocio' }])
         }
