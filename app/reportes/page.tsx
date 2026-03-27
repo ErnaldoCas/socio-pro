@@ -17,19 +17,20 @@ export default function Reportes() {
   const { rol } = useRol()
   const esDueno = rol === 'dueño'
 
+  // ✅ Carga todo de una vez sin depender de esDueno
   useEffect(() => {
     cargarMovimientos()
+    cargarColaboradores()
   }, [])
 
-  // ✅ Se dispara cuando esDueno cambia de false a true
-  useEffect(() => {
-    if (esDueno) cargarColaboradores()
-  }, [esDueno])
-
   async function cargarColaboradores() {
-    const res = await fetch('/api/negocio')
-    const data = await res.json()
-    setColaboradores(data.colaboradores?.filter((c: any) => c.estado === 'activo') || [])
+    try {
+      const res = await fetch('/api/negocio')
+      const data = await res.json()
+      setColaboradores(data.colaboradores?.filter((c: any) => c.estado === 'activo') || [])
+    } catch {
+      setColaboradores([])
+    }
   }
 
   async function cargarMovimientos() {
@@ -302,8 +303,8 @@ export default function Reportes() {
                 </select>
               </div>
 
-              {/* Filtro por colaborador */}
-              {esDueno && colaboradores.length > 0 && (
+              {/* Filtro por colaborador — aparece si hay colaboradores */}
+              {colaboradores.length > 0 && (
                 <div className="col-span-2">
                   <p className="text-xs text-gray-400 mb-1">Registrado por</p>
                   <select
@@ -381,7 +382,8 @@ export default function Reportes() {
                         <span className="text-xs text-gray-300">
                           {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                         </span>
-                        {esDueno && (
+                        {/* ✅ Badge visible si hay colaboradores */}
+                        {colaboradores.length > 0 && (
                           <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
                             m.colaborador_id
                               ? 'bg-blue-50 text-blue-600'

@@ -17,19 +17,20 @@ export default function Movimientos() {
   const { rol } = useRol()
   const esDueno = rol === 'dueño'
 
+  // ✅ Carga todo de una vez sin depender de esDueno
   useEffect(() => {
     cargarMovimientos()
+    cargarColaboradores()
   }, [])
 
-  // ✅ Se dispara cuando esDueno cambia de false a true
-  useEffect(() => {
-    if (esDueno) cargarColaboradores()
-  }, [esDueno])
-
   async function cargarColaboradores() {
-    const res = await fetch('/api/negocio')
-    const data = await res.json()
-    setColaboradores(data.colaboradores?.filter((c: any) => c.estado === 'activo') || [])
+    try {
+      const res = await fetch('/api/negocio')
+      const data = await res.json()
+      setColaboradores(data.colaboradores?.filter((c: any) => c.estado === 'activo') || [])
+    } catch {
+      setColaboradores([])
+    }
   }
 
   async function cargarMovimientos() {
@@ -136,7 +137,7 @@ export default function Movimientos() {
             ))}
           </div>
 
-          {/* Filtro por colaborador */}
+          {/* Filtro por colaborador — solo aparece si hay colaboradores */}
           {esDueno && colaboradores.length > 0 && (
             <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
               <button
@@ -274,8 +275,8 @@ export default function Movimientos() {
                                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                               })}
                             </span>
-                            {/* ✅ Badge quién registró */}
-                            {esDueno && (
+                            {/* ✅ Badge quién registró — visible para el dueño */}
+                            {colaboradores.length > 0 && (
                               <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
                                 m.colaborador_id
                                   ? 'bg-blue-50 text-blue-600'
