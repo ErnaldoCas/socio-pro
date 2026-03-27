@@ -6,40 +6,53 @@ export default function VoiceInput({ onResult }) {
   const [error, setError] = useState('')
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
+  const streamRef = useRef(null)
 
   async function iniciarGrabacion() {
     setError('')
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Tu navegador no soporta grabación de audio.')
+      setError('Tu navegador no soporta grabación.')
       return
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        }
       })
 
-      mediaRecorderRef.current = mediaRecorder
+      streamRef.current = stream
       chunksRef.current = []
 
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/mp4'
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType })
+      mediaRecorderRef.current = mediaRecorder
+
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data)
-        }
+        if (e.data.size > 0) chunksRef.current.push(e.data)
       }
 
       mediaRecorder.onstop = async () => {
-        // Detiene todos los tracks del micrófono
         stream.getTracks().forEach(t => t.stop())
-
         setEstado('procesando')
 
-        const blob = new Blob(chunksRef.current, {
-          type: mediaRecorder.mimeType
-        })
+        const blob = new Blob(chunksRef.current, { type: mimeType })
+
+        // Mínimo 0.5 segundos de audio para procesar
+        if (blob.size < 1000) {
+          setError('Grabación muy corta. Mantén presionado y habla.')
+          setEstado('idle')
+          return
+        }
 
         try {
           const formData = new FormData()
@@ -52,23 +65,23 @@ export default function VoiceInput({ onResult }) {
 
           const data = await res.json()
 
-          if (data.texto) {
-            onResult(data.texto)
+          if (data.texto?.trim()) {
+            onResult(data.texto.trim())
             setError('')
           } else {
             setError('No se entendió. Intenta de nuevo.')
           }
         } catch {
-          setError('Error al procesar el audio.')
+          setError('Error al procesar. Intenta de nuevo.')
         }
 
         setEstado('idle')
       }
 
-      mediaRecorder.start()
+      mediaRecorder.start(100) // Captura chunks cada 100ms
       setEstado('grabando')
 
-    } catch (err) {
+    } catch {
       setError('Permiso de micrófono denegado.')
       setEstado('idle')
     }
@@ -80,32 +93,61 @@ export default function VoiceInput({ onResult }) {
     }
   }
 
+  // ✅ Manejo táctil para móvil
+  function handleTouchStart(e) {
+    e.preventDefault()
+    if (estado === 'idle') iniciarGrabacion()
+  }
+
+  function handleTouchEnd(e) {
+    e.preventDefault()
+    if (estado === 'grabando') detenerGrabacion()
+  }
+
+  // ✅ Manejo mouse para escritorio
+  function handleMouseDown() {
+    if (estado === 'idle') iniciarGrabacion()
+  }
+
+  function handleMouseUp() {
+    if (estado === 'grabando') detenerGrabacion()
+  }
+
   return (
     <div className="flex flex-col items-end gap-1">
       <button
-        onClick={estado === 'grabando' ? detenerGrabacion : iniciarGrabacion}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         disabled={estado === 'procesando'}
         type="button"
-        className={`p-2.5 rounded-lg border text-sm transition-all ${
+        className={`p-2.5 rounded-lg border text-sm transition-all select-none ${
           estado === 'grabando'
-            ? 'bg-red-50 border-red-300 text-red-500 animate-pulse'
+            ? 'bg-red-500 border-red-400 text-white scale-110 shadow-lg shadow-red-200'
             : estado === 'procesando'
             ? 'bg-blue-50 border-blue-200 text-blue-400'
-            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 active:scale-95'
         }`}
         title={
-          estado === 'grabando' ? 'Toca para detener'
+          estado === 'grabando' ? 'Suelta para enviar'
           : estado === 'procesando' ? 'Procesando...'
-          : 'Toca para hablar'
+          : 'Mantén presionado para hablar'
         }
       >
         {estado === 'grabando' ? '🔴' : estado === 'procesando' ? '⏳' : '🎤'}
       </button>
+
+      {/* Instrucción contextual */}
+      {estado === 'idle' && !error && (
+        <p className="text-xs text-gray-300 text-right">mantén presionado</p>
+      )}
       {estado === 'grabando' && (
-        <p className="text-xs text-red-400 text-right">Grabando... toca para detener</p>
+        <p className="text-xs text-red-400 text-right animate-pulse">escuchando...</p>
       )}
       {estado === 'procesando' && (
-        <p className="text-xs text-blue-400 text-right">Procesando...</p>
+        <p className="text-xs text-blue-400 text-right">procesando...</p>
       )}
       {error && estado === 'idle' && (
         <p className="text-xs text-red-400 max-w-40 text-right leading-tight">{error}</p>
