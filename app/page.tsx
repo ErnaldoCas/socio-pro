@@ -5,6 +5,7 @@ import NavBar from '@/components/NavBar'
 import VoiceInput from '@/components/VoiceInput'
 import Graficos from '@/components/Graficos'
 import HealthScore from '@/components/HealthScore'
+import WelcomeModal from '@/components/WelcomeModal'
 import { useState, useEffect, useRef } from 'react'
 import { parsearMovimiento } from '@/lib/nlpParser'
 import { useRol } from '@/hooks/useRol'
@@ -18,17 +19,35 @@ export default function Home() {
   const [mensaje, setMensaje] = useState('')
   const [mensajeError, setMensajeError] = useState(false)
   const [tipoDetectado, setTipoDetectado] = useState('')
+  const [nombreDueno, setNombreDueno] = useState<string | null>(null)
+  const [mostrarModal, setMostrarModal] = useState(false)
+  const [negocioCargado, setNegocioCargado] = useState(false)
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
-
   const { rol, permisos } = useRol()
   const esDueno = rol === 'dueño'
   const puedeRegistrar = !rol || esDueno || permisos?.registrar_movimientos === true
 
   useEffect(() => {
     cargarMovimientos()
+    cargarNegocio()
+  }, [])
+
+  useEffect(() => {
     if (esDueno) cargarColaboradores()
-  }, [filtroColaborador, rol])
+  }, [esDueno])
+
+  async function cargarNegocio() {
+    const res = await fetch('/api/negocio')
+    const data = await res.json()
+    const nombre = data.negocio?.nombre_dueno || null
+    setNombreDueno(nombre)
+    setNegocioCargado(true)
+    // ✅ Muestra modal solo si es dueño y no tiene nombre guardado
+    if (data.rol === 'dueño' && !nombre) {
+      setMostrarModal(true)
+    }
+  }
 
   async function cargarColaboradores() {
     const res = await fetch('/api/negocio')
@@ -48,9 +67,7 @@ export default function Home() {
 
   function handleInput(texto: string) {
     setInput(texto)
-
     if (debounceRef.current) clearTimeout(debounceRef.current)
-
     if (texto.length > 3) {
       debounceRef.current = setTimeout(() => {
         const { tipo } = parsearMovimiento(texto)
@@ -88,22 +105,44 @@ export default function Home() {
     setLoading(false)
   }
 
-  const ingresos = movimientos
-    .filter(m => m.tipo === 'ingreso')
-    .reduce((sum, m) => sum + m.monto, 0)
+  // ✅ Saludo según hora del día
+  function getSaludo() {
+    const hora = new Date().getHours()
+    if (hora >= 6 && hora < 12) return 'Buenos días'
+    if (hora >= 12 && hora < 20) return 'Buenas tardes'
+    return 'Buenas noches'
+  }
 
-  const egresos = movimientos
-    .filter(m => m.tipo === 'egreso')
-    .reduce((sum, m) => sum + m.monto, 0)
-
+  const ingresos = movimientos.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.monto, 0)
+  const egresos = movimientos.filter(m => m.tipo === 'egreso').reduce((sum, m) => sum + m.monto, 0)
   const balance = ingresos - egresos
 
   return (
     <AuthGuard>
+      {/* ✅ Modal de bienvenida si no hay nombre */}
+      {mostrarModal && (
+        <WelcomeModal
+          onGuardar={(nombre) => {
+            setNombreDueno(nombre)
+            setMostrarModal(false)
+          }}
+        />
+      )}
+
       <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          {/* Filtro por colaborador — solo dueño */}
+          {/* ✅ Saludo personalizado */}
+          {negocioCargado && nombreDueno && (
+            <div className="mb-4 mt-2">
+              <p className="text-lg font-semibold text-gray-800">
+                {getSaludo()}, {nombreDueno} 👋
+              </p>
+              <p className="text-xs text-gray-400">¿Cómo va el negocio hoy?</p>
+            </div>
+          )}
+
+          {/* Filtro por colaborador */}
           {esDueno && colaboradores.length > 0 && (
             <div className="mb-4 mt-2">
               <div className="flex gap-2 overflow-x-auto pb-1">

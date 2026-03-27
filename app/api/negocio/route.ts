@@ -100,6 +100,17 @@ export async function POST(request: Request) {
     return Response.json(data)
   }
 
+  // ✅ Guarda el nombre del dueño
+  if (body.accion === 'guardar_nombre_dueno') {
+    const { data } = await admin
+      .from('negocios')
+      .update({ nombre_dueno: body.nombre })
+      .eq('owner_id', user.id)
+      .select()
+      .single()
+    return Response.json(data)
+  }
+
   if (body.accion === 'invitar_colaborador') {
     const { data: negocio } = await admin
       .from('negocios')
