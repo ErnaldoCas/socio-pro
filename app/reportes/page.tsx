@@ -2,24 +2,42 @@
 import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
 import { useState, useEffect } from 'react'
+import { useRol } from '@/hooks/useRol'
 
 export default function Reportes() {
   const [movimientos, setMovimientos] = useState<any[]>([])
+  const [colaboradores, setColaboradores] = useState<any[]>([])
   const [exportando, setExportando] = useState(false)
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroCategoria, setFiltroCategoria] = useState('todas')
+  const [filtroColaborador, setFiltroColaborador] = useState('todos')
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
-  const [cierreMostrado, setCierreMostrado] = useState(false)
+
+  const { rol } = useRol()
+  const esDueno = rol === 'dueño'
 
   useEffect(() => {
     cargarMovimientos()
-  }, [])
+    if (esDueno) cargarColaboradores()
+  }, [rol])
+
+  async function cargarColaboradores() {
+    const res = await fetch('/api/negocio')
+    const data = await res.json()
+    setColaboradores(data.colaboradores?.filter((c: any) => c.estado === 'activo') || [])
+  }
 
   async function cargarMovimientos() {
     const res = await fetch('/api/movimientos')
     const data = await res.json()
     setMovimientos(data || [])
+  }
+
+  function getNombreColaborador(m: any) {
+    if (!m.colaborador_id) return 'Dueño'
+    const colab = colaboradores.find((c: any) => c.id === m.colaborador_id)
+    return colab?.nombre || colab?.email || 'Colaborador'
   }
 
   function filtrarMovimientos() {
@@ -28,7 +46,12 @@ export default function Reportes() {
       const cat = filtroCategoria === 'todas' || m.categoria === filtroCategoria
       const desde = !fechaDesde || new Date(m.created_at) >= new Date(fechaDesde)
       const hasta = !fechaHasta || new Date(m.created_at) <= new Date(fechaHasta + 'T23:59:59')
-      return tipo && cat && desde && hasta
+      const colab = filtroColaborador === 'todos'
+        ? true
+        : filtroColaborador === 'dueno'
+        ? !m.colaborador_id
+        : m.colaborador_id === filtroColaborador
+      return tipo && cat && desde && hasta && colab
     })
   }
 
@@ -40,7 +63,6 @@ export default function Reportes() {
   }
 
   async function cierreDeCaja() {
-    setCierreMostrado(true)
     const hoy = movimientosHoy()
     const ingresosHoy = hoy.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
     const egresosHoy = hoy.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
@@ -67,6 +89,7 @@ export default function Reportes() {
           td { padding: 8px 10px; border-bottom: 1px solid #f9fafb; }
           .ingreso { color: #16a34a; font-weight: 500; }
           .egreso { color: #ef4444; font-weight: 500; }
+          .badge { font-size: 11px; background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px; }
           .footer { margin-top: 24px; font-size: 11px; color: #9ca3af; text-align: center; }
         </style>
       </head>
@@ -80,11 +103,12 @@ export default function Reportes() {
         </div>
         <hr class="divider">
         <table>
-          <tr><th>Hora</th><th>Concepto</th><th>Tipo</th><th>Monto</th></tr>
+          <tr><th>Hora</th><th>Concepto</th><th>Registrado por</th><th>Tipo</th><th>Monto</th></tr>
           ${hoy.map(m => `
             <tr>
               <td>${new Date(m.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</td>
               <td>${m.concepto}</td>
+              <td><span class="badge">${getNombreColaborador(m)}</span></td>
               <td>${m.tipo}</td>
               <td class="${m.tipo === 'ingreso' ? 'ingreso' : 'egreso'}">${m.tipo === 'ingreso' ? '+' : '-'}$${m.monto.toLocaleString()}</td>
             </tr>
@@ -120,7 +144,8 @@ export default function Reportes() {
       Concepto: m.concepto,
       Tipo: m.tipo,
       Monto: m.monto,
-      Categoria: m.categoria || 'general'
+      Categoria: m.categoria || 'general',
+      'Registrado por': getNombreColaborador(m)
     }))
     const ws = XLSX.utils.json_to_sheet(datos)
     const wb = XLSX.utils.book_new()
@@ -132,6 +157,12 @@ export default function Reportes() {
   async function exportarReporte() {
     setExportando(true)
     const balance = ingresos - egresos
+    const nombreFiltroColab = filtroColaborador === 'todos'
+      ? 'Todo el equipo'
+      : filtroColaborador === 'dueno'
+      ? 'Solo dueño'
+      : colaboradores.find((c: any) => c.id === filtroColaborador)?.nombre || 'Colaborador'
+
     const html = `
       <html>
       <head>
@@ -153,13 +184,14 @@ export default function Reportes() {
           td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
           .ingreso { color: #16a34a; font-weight: 500; }
           .egreso { color: #ef4444; font-weight: 500; }
+          .badge { font-size: 11px; background: #eff6ff; color: #2563eb; padding: 2px 6px; border-radius: 4px; }
         </style>
       </head>
       <body>
         <h1>Socio Pro — Reporte</h1>
         <p class="sub">Generado el ${new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         <div class="filtros">
-          Filtros: Tipo: ${filtroTipo} | Categoría: ${filtroCategoria}
+          Filtros: Tipo: ${filtroTipo} | Categoría: ${filtroCategoria} | Colaborador: ${nombreFiltroColab}
           ${fechaDesde ? ` | Desde: ${fechaDesde}` : ''}
           ${fechaHasta ? ` | Hasta: ${fechaHasta}` : ''}
           | Total: ${filtrados.length} movimientos
@@ -170,12 +202,13 @@ export default function Reportes() {
           <div class="card"><span>Balance</span><div class="${balance >= 0 ? 'blue' : 'red'}">$${balance.toLocaleString()}</div></div>
         </div>
         <table>
-          <tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Tipo</th><th>Monto</th></tr>
+          <tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Registrado por</th><th>Tipo</th><th>Monto</th></tr>
           ${filtrados.map(m => `
             <tr>
               <td>${new Date(m.created_at).toLocaleDateString('es-CL')}</td>
               <td>${m.concepto}</td>
               <td>${m.categoria || 'general'}</td>
+              <td><span class="badge">${getNombreColaborador(m)}</span></td>
               <td>${m.tipo}</td>
               <td class="${m.tipo === 'ingreso' ? 'ingreso' : 'egreso'}">${m.tipo === 'ingreso' ? '+' : '-'}$${m.monto.toLocaleString()}</td>
             </tr>
@@ -196,7 +229,7 @@ export default function Reportes() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-100 p-4 pt-24 pb-24">
+      <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
           <div className="mb-4 pt-2">
@@ -234,7 +267,7 @@ export default function Reportes() {
                 </p>
               </div>
             </div>
-            <p className="text-xs text-gray-400 text-center mt-2">{hoy.length} movimientos hoy · descarga el PDF al hacer cierre</p>
+            <p className="text-xs text-gray-400 text-center mt-2">{hoy.length} movimientos hoy</p>
           </div>
 
           {/* Filtros */}
@@ -265,6 +298,25 @@ export default function Reportes() {
                   ))}
                 </select>
               </div>
+
+              {/* ✅ Filtro por colaborador — solo dueño */}
+              {esDueno && colaboradores.length > 0 && (
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-400 mb-1">Registrado por</p>
+                  <select
+                    value={filtroColaborador}
+                    onChange={e => setFiltroColaborador(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-400"
+                  >
+                    <option value="todos">Todo el equipo</option>
+                    <option value="dueno">Solo mis registros</option>
+                    {colaboradores.map((c: any) => (
+                      <option key={c.id} value={c.id}>{c.nombre || c.email}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <p className="text-xs text-gray-400 mb-1">Desde</p>
                 <input
@@ -321,11 +373,21 @@ export default function Reportes() {
                   <div key={m.id} className="px-5 py-3 flex justify-between items-center">
                     <div className="flex-1 min-w-0 mr-3">
                       <p className="text-sm text-gray-800 truncate">{m.concepto}</p>
-                      <div className="flex gap-2 mt-0.5">
+                      <div className="flex gap-2 mt-0.5 flex-wrap">
                         <span className="text-xs text-gray-400">{m.categoria || 'general'}</span>
                         <span className="text-xs text-gray-300">
                           {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                         </span>
+                        {/* ✅ Badge colaborador en vista previa */}
+                        {esDueno && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                            m.colaborador_id
+                              ? 'bg-blue-50 text-blue-600'
+                              : 'bg-green-50 text-green-700'
+                          }`}>
+                            {getNombreColaborador(m)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <span className={`text-sm font-medium flex-shrink-0 ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>

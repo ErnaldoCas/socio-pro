@@ -2,18 +2,31 @@
 import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
 import { useState, useEffect } from 'react'
+import { useRol } from '@/hooks/useRol'
 
 export default function Movimientos() {
   const [movimientos, setMovimientos] = useState<any[]>([])
+  const [colaboradores, setColaboradores] = useState<any[]>([])
   const [filtro, setFiltro] = useState('todos')
+  const [filtroColaborador, setFiltroColaborador] = useState('todos')
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ concepto: '', monto: '', tipo: '', categoria: '' })
   const [guardando, setGuardando] = useState(false)
 
+  const { rol, permisos } = useRol()
+  const esDueno = rol === 'dueño'
+
   useEffect(() => {
     cargarMovimientos()
-  }, [])
+    if (esDueno) cargarColaboradores()
+  }, [rol])
+
+  async function cargarColaboradores() {
+    const res = await fetch('/api/negocio')
+    const data = await res.json()
+    setColaboradores(data.colaboradores?.filter((c: any) => c.estado === 'activo') || [])
+  }
 
   async function cargarMovimientos() {
     const res = await fetch('/api/movimientos')
@@ -58,16 +71,29 @@ export default function Movimientos() {
     cargarMovimientos()
   }
 
+  // ✅ Función para obtener nombre del colaborador
+  function getNombreColaborador(m: any) {
+    if (!m.colaborador_id) return esDueno ? 'Tú (dueño)' : null
+    const colab = colaboradores.find(c => c.id === m.colaborador_id)
+    return colab?.nombre || colab?.email || 'Colaborador'
+  }
+
+  // ✅ Filtro combinado tipo + colaborador
   const filtrados = movimientos.filter(m => {
-    if (filtro === 'todos') return true
-    return m.tipo === filtro
+    const porTipo = filtro === 'todos' || m.tipo === filtro
+    const porColaborador = filtroColaborador === 'todos'
+      ? true
+      : filtroColaborador === 'dueno'
+      ? !m.colaborador_id
+      : m.colaborador_id === filtroColaborador
+    return porTipo && porColaborador
   })
 
-  const ingresos = movimientos
+  const ingresos = filtrados
     .filter(m => m.tipo === 'ingreso')
     .reduce((sum, m) => sum + m.monto, 0)
 
-  const egresos = movimientos
+  const egresos = filtrados
     .filter(m => m.tipo === 'egreso')
     .reduce((sum, m) => sum + m.monto, 0)
 
@@ -98,7 +124,8 @@ export default function Movimientos() {
             </div>
           </div>
 
-          <div className="flex gap-2 mb-4">
+          {/* Filtro por tipo */}
+          <div className="flex gap-2 mb-3">
             {['todos', 'ingreso', 'egreso'].map(f => (
               <button
                 key={f}
@@ -114,6 +141,45 @@ export default function Movimientos() {
             ))}
           </div>
 
+          {/* ✅ Filtro por colaborador — solo dueño */}
+          {esDueno && colaboradores.length > 0 && (
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+              <button
+                onClick={() => setFiltroColaborador('todos')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${
+                  filtroColaborador === 'todos'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-500 border border-gray-200'
+                }`}
+              >
+                Todo el equipo
+              </button>
+              <button
+                onClick={() => setFiltroColaborador('dueno')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${
+                  filtroColaborador === 'dueno'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-500 border border-gray-200'
+                }`}
+              >
+                Solo mis registros
+              </button>
+              {colaboradores.map((c: any) => (
+                <button
+                  key={c.id}
+                  onClick={() => setFiltroColaborador(c.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${
+                    filtroColaborador === c.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-500 border border-gray-200'
+                  }`}
+                >
+                  {c.nombre || c.email}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="bg-white rounded-xl border border-gray-100">
             {filtrados.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-8">No hay movimientos</p>
@@ -122,7 +188,7 @@ export default function Movimientos() {
                 {filtrados.map(m => (
                   <div key={m.id}>
 
-                    {/* ── Modo edición ── */}
+                    {/* Modo edición */}
                     {editandoId === m.id ? (
                       <div className="p-4 bg-gray-50">
                         <p className="text-xs font-medium text-gray-600 mb-3">Editar movimiento</p>
@@ -181,7 +247,7 @@ export default function Movimientos() {
                         </div>
                       </div>
 
-                    /* ── Modo confirmación eliminar ── */
+                    /* Modo confirmación eliminar */
                     ) : confirmandoId === m.id ? (
                       <div className="p-4 bg-red-50">
                         <p className="text-sm text-red-700 font-medium mb-1">¿Eliminar este movimiento?</p>
@@ -202,12 +268,12 @@ export default function Movimientos() {
                         </div>
                       </div>
 
-                    /* ── Vista normal ── */
+                    /* Vista normal */
                     ) : (
                       <div className="p-4 flex justify-between items-center">
                         <div className="flex-1 min-w-0 mr-3">
                           <p className="text-sm text-gray-800 truncate">{m.concepto}</p>
-                          <div className="flex gap-2 mt-0.5">
+                          <div className="flex gap-2 mt-0.5 flex-wrap">
                             {m.categoria && (
                               <span className="text-xs text-gray-400">{m.categoria}</span>
                             )}
@@ -216,6 +282,16 @@ export default function Movimientos() {
                                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                               })}
                             </span>
+                            {/* ✅ Badge del colaborador */}
+                            {esDueno && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                                m.colaborador_id
+                                  ? 'bg-blue-50 text-blue-600'
+                                  : 'bg-green-50 text-green-700'
+                              }`}>
+                                {getNombreColaborador(m)}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
