@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { RolProvider } from '@/contexts/RolContext'
+import { RolProvider } from '../contexts/RolContext'
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)

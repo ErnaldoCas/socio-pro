@@ -19,8 +19,12 @@ export default function Reportes() {
 
   useEffect(() => {
     cargarMovimientos()
+  }, [])
+
+  // ✅ Se dispara cuando esDueno cambia de false a true
+  useEffect(() => {
     if (esDueno) cargarColaboradores()
-  }, [rol])
+  }, [esDueno])
 
   async function cargarColaboradores() {
     const res = await fetch('/api/negocio')
@@ -131,7 +135,6 @@ export default function Reportes() {
   const filtrados = filtrarMovimientos()
   const ingresos = filtrados.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
   const egresos = filtrados.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
-
   const hoy = movimientosHoy()
   const ingresosHoy = hoy.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
   const egresosHoy = hoy.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
@@ -191,7 +194,7 @@ export default function Reportes() {
         <h1>Socio Pro — Reporte</h1>
         <p class="sub">Generado el ${new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         <div class="filtros">
-          Filtros: Tipo: ${filtroTipo} | Categoría: ${filtroCategoria} | Colaborador: ${nombreFiltroColab}
+          Filtros: Tipo: ${filtroTipo} | Categoría: ${filtroCategoria} | Registrado por: ${nombreFiltroColab}
           ${fechaDesde ? ` | Desde: ${fechaDesde}` : ''}
           ${fechaHasta ? ` | Hasta: ${fechaHasta}` : ''}
           | Total: ${filtrados.length} movimientos
@@ -299,7 +302,7 @@ export default function Reportes() {
                 </select>
               </div>
 
-              {/* ✅ Filtro por colaborador — solo dueño */}
+              {/* Filtro por colaborador */}
               {esDueno && colaboradores.length > 0 && (
                 <div className="col-span-2">
                   <p className="text-xs text-gray-400 mb-1">Registrado por</p>
@@ -373,14 +376,13 @@ export default function Reportes() {
                   <div key={m.id} className="px-5 py-3 flex justify-between items-center">
                     <div className="flex-1 min-w-0 mr-3">
                       <p className="text-sm text-gray-800 truncate">{m.concepto}</p>
-                      <div className="flex gap-2 mt-0.5 flex-wrap">
+                      <div className="flex gap-2 mt-0.5 flex-wrap items-center">
                         <span className="text-xs text-gray-400">{m.categoria || 'general'}</span>
                         <span className="text-xs text-gray-300">
                           {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                         </span>
-                        {/* ✅ Badge colaborador en vista previa */}
                         {esDueno && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
                             m.colaborador_id
                               ? 'bg-blue-50 text-blue-600'
                               : 'bg-green-50 text-green-700'

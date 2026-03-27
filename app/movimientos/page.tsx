@@ -14,13 +14,17 @@ export default function Movimientos() {
   const [editForm, setEditForm] = useState({ concepto: '', monto: '', tipo: '', categoria: '' })
   const [guardando, setGuardando] = useState(false)
 
-  const { rol, permisos } = useRol()
+  const { rol } = useRol()
   const esDueno = rol === 'dueño'
 
   useEffect(() => {
     cargarMovimientos()
+  }, [])
+
+  // ✅ Se dispara cuando esDueno cambia de false a true
+  useEffect(() => {
     if (esDueno) cargarColaboradores()
-  }, [rol])
+  }, [esDueno])
 
   async function cargarColaboradores() {
     const res = await fetch('/api/negocio')
@@ -53,7 +57,6 @@ export default function Movimientos() {
   async function guardarEdicion(id: string) {
     if (!editForm.concepto.trim() || !editForm.monto) return
     setGuardando(true)
-
     await fetch('/api/movimientos', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -65,20 +68,17 @@ export default function Movimientos() {
         categoria: editForm.categoria
       })
     })
-
     setEditandoId(null)
     setGuardando(false)
     cargarMovimientos()
   }
 
-  // ✅ Función para obtener nombre del colaborador
   function getNombreColaborador(m: any) {
-    if (!m.colaborador_id) return esDueno ? 'Tú (dueño)' : null
+    if (!m.colaborador_id) return 'Tú (dueño)'
     const colab = colaboradores.find(c => c.id === m.colaborador_id)
     return colab?.nombre || colab?.email || 'Colaborador'
   }
 
-  // ✅ Filtro combinado tipo + colaborador
   const filtrados = movimientos.filter(m => {
     const porTipo = filtro === 'todos' || m.tipo === filtro
     const porColaborador = filtroColaborador === 'todos'
@@ -89,13 +89,8 @@ export default function Movimientos() {
     return porTipo && porColaborador
   })
 
-  const ingresos = filtrados
-    .filter(m => m.tipo === 'ingreso')
-    .reduce((sum, m) => sum + m.monto, 0)
-
-  const egresos = filtrados
-    .filter(m => m.tipo === 'egreso')
-    .reduce((sum, m) => sum + m.monto, 0)
+  const ingresos = filtrados.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.monto, 0)
+  const egresos = filtrados.filter(m => m.tipo === 'egreso').reduce((sum, m) => sum + m.monto, 0)
 
   return (
     <AuthGuard>
@@ -141,7 +136,7 @@ export default function Movimientos() {
             ))}
           </div>
 
-          {/* ✅ Filtro por colaborador — solo dueño */}
+          {/* Filtro por colaborador */}
           {esDueno && colaboradores.length > 0 && (
             <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
               <button
@@ -188,7 +183,6 @@ export default function Movimientos() {
                 {filtrados.map(m => (
                   <div key={m.id}>
 
-                    {/* Modo edición */}
                     {editandoId === m.id ? (
                       <div className="p-4 bg-gray-50">
                         <p className="text-xs font-medium text-gray-600 mb-3">Editar movimiento</p>
@@ -247,7 +241,6 @@ export default function Movimientos() {
                         </div>
                       </div>
 
-                    /* Modo confirmación eliminar */
                     ) : confirmandoId === m.id ? (
                       <div className="p-4 bg-red-50">
                         <p className="text-sm text-red-700 font-medium mb-1">¿Eliminar este movimiento?</p>
@@ -268,12 +261,11 @@ export default function Movimientos() {
                         </div>
                       </div>
 
-                    /* Vista normal */
                     ) : (
                       <div className="p-4 flex justify-between items-center">
                         <div className="flex-1 min-w-0 mr-3">
                           <p className="text-sm text-gray-800 truncate">{m.concepto}</p>
-                          <div className="flex gap-2 mt-0.5 flex-wrap">
+                          <div className="flex gap-2 mt-0.5 flex-wrap items-center">
                             {m.categoria && (
                               <span className="text-xs text-gray-400">{m.categoria}</span>
                             )}
@@ -282,9 +274,9 @@ export default function Movimientos() {
                                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                               })}
                             </span>
-                            {/* ✅ Badge del colaborador */}
+                            {/* ✅ Badge quién registró */}
                             {esDueno && (
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
                                 m.colaborador_id
                                   ? 'bg-blue-50 text-blue-600'
                                   : 'bg-green-50 text-green-700'
