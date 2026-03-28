@@ -4,9 +4,9 @@ import { useState, useRef } from 'react'
 export default function VoiceInput({ onResult }) {
   const [estado, setEstado] = useState('idle')
   const [error, setError] = useState('')
-
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
+  const silencioRef = useRef(null)
   const audioContextRef = useRef(null)
 
   async function iniciar() {
@@ -19,6 +19,13 @@ export default function VoiceInput({ onResult }) {
     }
 
     try {
+      // 🔥 ACTIVAR AUDIO CONTEXT EN EL PRIMER CLIC
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+      }
+      audioContextRef.current = audioContext
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -50,6 +57,11 @@ export default function VoiceInput({ onResult }) {
           audioContextRef.current = null
         }
 
+        if (silencioRef.current) {
+          clearTimeout(silencioRef.current)
+          silencioRef.current = null
+        }
+
         setEstado('procesando')
 
         const blob = new Blob(chunksRef.current, { type: mimeType })
@@ -72,15 +84,7 @@ export default function VoiceInput({ onResult }) {
           const data = await res.json()
 
           if (data.texto?.trim()) {
-            const texto = data.texto.trim()
-
-            // ✅ CONFIRMACIÓN SIN UI EXTRA
-            const ok = window.confirm(`¿Usar este texto?\n\n"${texto}"`)
-
-            if (ok) {
-              onResult(texto)
-            }
-
+            onResult(data.texto.trim())
             setError('')
           } else {
             setError('No se entendió, intenta de nuevo.')
@@ -95,11 +99,9 @@ export default function VoiceInput({ onResult }) {
       mediaRecorder.start(100)
       setEstado('grabando')
 
-      const audioContext = new AudioContext()
-      audioContextRef.current = audioContext
+      // ✅ Detección de silencio
       const analyser = audioContext.createAnalyser()
       const source = audioContext.createMediaStreamSource(stream)
-
       source.connect(analyser)
       analyser.fftSize = 512
 
