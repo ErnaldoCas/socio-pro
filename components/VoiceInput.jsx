@@ -3,75 +3,15 @@ import { useState, useRef } from 'react'
 
 export default function VoiceInput({ onResult }) {
   const [estado, setEstado] = useState('idle')
+  const [textoTranscrito, setTextoTranscrito] = useState('')
   const [error, setError] = useState('')
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
-  const silencioRef = useRef(null)
   const audioContextRef = useRef(null)
 
-  // 🔢 Conversor básico de números en texto a número
-  function convertirNumeros(texto) {
-    const mapa = {
-      cero: 0,
-      uno: 1,
-      una: 1,
-      dos: 2,
-      tres: 3,
-      cuatro: 4,
-      cinco: 5,
-      seis: 6,
-      siete: 7,
-      ocho: 8,
-      nueve: 9,
-      diez: 10,
-      once: 11,
-      doce: 12,
-      trece: 13,
-      catorce: 14,
-      quince: 15,
-      veinte: 20,
-      treinta: 30,
-      cuarenta: 40,
-      cincuenta: 50,
-      sesenta: 60,
-      setenta: 70,
-      ochenta: 80,
-      noventa: 90,
-      cien: 100,
-      ciento: 100,
-      mil: 1000
-    }
-
-    const palabras = texto.toLowerCase().split(' ')
-    let resultado = []
-    let acumulador = 0
-
-    for (let palabra of palabras) {
-      if (mapa[palabra] !== undefined) {
-        if (palabra === 'mil') {
-          acumulador = (acumulador || 1) * 1000
-          resultado.push(acumulador)
-          acumulador = 0
-        } else {
-          acumulador += mapa[palabra]
-        }
-      } else {
-        if (acumulador > 0) {
-          resultado.push(acumulador)
-          acumulador = 0
-        }
-        resultado.push(palabra)
-      }
-    }
-
-    if (acumulador > 0) resultado.push(acumulador)
-
-    return resultado.join(' ')
-  }
-
   async function iniciar() {
-    if (estado !== 'idle') return
     setError('')
+    setTextoTranscrito('')
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Tu navegador no soporta grabación.')
@@ -79,19 +19,8 @@ export default function VoiceInput({ onResult }) {
     }
 
     try {
-      // 🔥 Activar AudioContext en primer clic
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume()
-      }
-      audioContextRef.current = audioContext
-
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        }
+        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
       })
 
       chunksRef.current = []
@@ -111,15 +40,9 @@ export default function VoiceInput({ onResult }) {
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
-
         if (audioContextRef.current) {
           audioContextRef.current.close()
           audioContextRef.current = null
-        }
-
-        if (silencioRef.current) {
-          clearTimeout(silencioRef.current)
-          silencioRef.current = null
         }
 
         setEstado('procesando')
@@ -135,68 +58,51 @@ export default function VoiceInput({ onResult }) {
         try {
           const formData = new FormData()
           formData.append('audio', blob, 'audio.webm')
-
-          const res = await fetch('/api/voz', {
-            method: 'POST',
-            body: formData
-          })
-
+          const res = await fetch('/api/voz', { method: 'POST', body: formData })
           const data = await res.json()
 
           if (data.texto?.trim()) {
-            // 🔢 AQUÍ SE CONVIERTEN LOS NÚMEROS
-            const textoProcesado = convertirNumeros(data.texto.trim())
-            onResult(textoProcesado)
-            setError('')
+            setTextoTranscrito(data.texto.trim())
+            setEstado('confirmar')
           } else {
             setError('No se entendió, intenta de nuevo.')
+            setEstado('idle')
           }
         } catch {
           setError('Error al procesar.')
+          setEstado('idle')
         }
-
-        setEstado('idle')
       }
 
       mediaRecorder.start(100)
       setEstado('grabando')
 
+      // Detección de silencio automática
+      const audioContext = new AudioContext()
+      audioContextRef.current = audioContext
       const analyser = audioContext.createAnalyser()
       const source = audioContext.createMediaStreamSource(stream)
       source.connect(analyser)
       analyser.fftSize = 512
-
       const dataArray = new Uint8Array(analyser.fftSize)
       let silencioConsecutivo = 0
 
       function detectarSilencio() {
         if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') return
-
         analyser.getByteTimeDomainData(dataArray)
-
         let suma = 0
-        for (let i = 0; i < dataArray.length; i++) {
-          suma += Math.abs(dataArray[i] - 128)
-        }
-
+        for (let i = 0; i < dataArray.length; i++) suma += Math.abs(dataArray[i] - 128)
         const volumen = suma / dataArray.length
-
         if (volumen < 3) {
           silencioConsecutivo++
-          if (silencioConsecutivo > 45) {
-            detener()
-            return
-          }
+          if (silencioConsecutivo > 45) { detener(); return }
         } else {
           silencioConsecutivo = 0
         }
-
         requestAnimationFrame(detectarSilencio)
       }
 
-      setTimeout(() => {
-        requestAnimationFrame(detectarSilencio)
-      }, 500)
+      setTimeout(() => requestAnimationFrame(detectarSilencio), 500)
 
     } catch {
       setError('Permiso de micrófono denegado.')
@@ -210,35 +116,69 @@ export default function VoiceInput({ onResult }) {
     }
   }
 
+  function confirmar() {
+    onResult(textoTranscrito)
+    setTextoTranscrito('')
+    setEstado('idle')
+  }
+
+  function reintentar() {
+    setTextoTranscrito('')
+    setEstado('idle')
+  }
+
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        onClick={estado === 'idle' ? iniciar : detener}
-        disabled={estado === 'procesando'}
-        type="button"
-        className={`w-11 h-11 rounded-xl border text-lg transition-all select-none flex items-center justify-center ${
-          estado === 'grabando'
-            ? 'bg-red-500 border-red-400 text-white shadow-md animate-pulse'
-            : estado === 'procesando'
-            ? 'bg-blue-50 border-blue-200 text-blue-400'
-            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-green-50 hover:border-green-300 active:scale-95'
-        }`}
-      >
-        {estado === 'grabando' ? '🔴' : estado === 'procesando' ? '⏳' : '🎤'}
-      </button>
 
-      {estado === 'grabando' && (
-        <p className="text-xs text-red-400 animate-pulse">escuchando...</p>
+      {/* Botón principal */}
+      {(estado === 'idle' || estado === 'grabando' || estado === 'procesando') && (
+        <button
+          onClick={estado === 'idle' ? iniciar : estado === 'grabando' ? detener : undefined}
+          disabled={estado === 'procesando'}
+          type="button"
+          className={`w-11 h-11 rounded-xl border text-lg transition-all select-none flex items-center justify-center ${
+            estado === 'grabando'
+              ? 'bg-red-500 border-red-400 text-white shadow-md animate-pulse'
+              : estado === 'procesando'
+              ? 'bg-blue-50 border-blue-200 text-blue-400'
+              : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-green-50 hover:border-green-300 active:scale-95'
+          }`}
+        >
+          {estado === 'grabando' ? '⏹' : estado === 'procesando' ? '⏳' : '🎤'}
+        </button>
       )}
 
+      {estado === 'grabando' && (
+        <p className="text-xs text-red-400 animate-pulse">escuchando... toca para detener</p>
+      )}
       {estado === 'procesando' && (
         <p className="text-xs text-blue-400">procesando...</p>
       )}
 
+      {/* ✅ Vista de confirmación */}
+      {estado === 'confirmar' && (
+        <div className="bg-white border border-gray-200 rounded-xl p-3 w-64 shadow-sm">
+          <p className="text-xs text-gray-400 mb-1">¿Esto es lo que dijiste?</p>
+          <p className="text-sm text-gray-800 font-medium mb-3 leading-snug">"{textoTranscrito}"</p>
+          <div className="flex gap-2">
+            <button
+              onClick={reintentar}
+              className="flex-1 border border-gray-200 text-gray-500 rounded-lg py-1.5 text-xs hover:bg-gray-50"
+            >
+              Reintentar
+            </button>
+            <button
+              onClick={confirmar}
+              className="flex-1 bg-green-600 text-white rounded-lg py-1.5 text-xs font-medium hover:bg-green-700"
+            >
+              Confirmar ✓
+            </button>
+          </div>
+        </div>
+      )}
+
       {error && estado === 'idle' && (
-        <p className="text-xs text-red-400 max-w-40 text-right leading-tight">
-          {error}
-        </p>
+        <p className="text-xs text-red-400 max-w-40 text-right leading-tight">{error}</p>
       )}
     </div>
   )

@@ -1,21 +1,17 @@
 export function parsearMovimiento(texto: string) {
   const t = texto.toLowerCase().trim()
 
-  // ✅ Más palabras de ingreso en chileno
   const palabrasIngreso = /vend[ií]|cobr[eé]|ingres[eé]|gan[eé]|recib[ií]|pagaron|vendido|cobrado|venta|me pagaron|me dieron|entraron|cayeron|cayó|llegaron|llegó|junt[eé]|sac[aé]|saqué/
-  // ✅ Más palabras de egreso en chileno
   const palabrasEgreso = /compr[eé]|gast[eé]|pagu[eé]|cost[oó]|compramos|gasto|debo|sal[ií]o|sali[oó]|fuero|fueron|desembolso|perd[ií]|me cost[oó]|me salió|tuve que pagar|ocup[eé]|saqué para/
 
   let tipo = 'egreso'
   if (palabrasIngreso.test(t) && !palabrasEgreso.test(t)) tipo = 'ingreso'
   if (!palabrasIngreso.test(t) && !palabrasEgreso.test(t)) {
-    // Si no hay keyword clara, asume ingreso si menciona productos típicos de venta
     if (/completo|empanada|café|bebida|jugo|pan|helado|schop|palta/.test(t)) tipo = 'ingreso'
   }
 
   let monto = 0
 
-  // ✅ Chilenismos de montos
   const palo = t.match(/(\d+(?:[.,]\d+)?)\s*palos?/)
   if (palo) monto = parseFloat(palo[1].replace(',', '.')) * 1000000
 
@@ -31,23 +27,54 @@ export function parsearMovimiento(texto: string) {
   const mil = t.match(/(\d+(?:[.,]\d+)?)\s*mil\b/)
   if (mil && monto === 0) monto = parseFloat(mil[1].replace(',', '.')) * 1000
 
-  // Medio palo, media luca
-  if (/medio palo|media luca/.test(t) && monto === 0) monto = t.includes('palo') ? 500000 : 500
+  if (/medio palo/.test(t) && monto === 0) monto = 500000
+  if (/media luca/.test(t) && monto === 0) monto = 500
 
   const directo = t.match(/\$?\s*(\d{2,})/)
   if (directo && monto === 0) monto = parseFloat(directo[1])
 
   monto = Math.round(monto)
 
-  // ✅ Categorías con más chilenismos
-  let categoria = 'general'
-  if (/completo|empanada|pan|caf[eé]|once|colaci[oó]n|cazuela|helado|marraqueta|schop|sopaipilla|mote|chorrillana|lomo|pollo|papas|ensalada|sandwich|hamburguesa|pizza/.test(t)) categoria = 'alimentación'
-  if (/harina|aceite|az[uú]car|sal|ingrediente|materia|insumo|envase|bolsa|caja|servilleta|palillo/.test(t)) categoria = 'insumos'
-  if (/arriendo|luz|agua|gas|internet|tel[eé]fono|cuenta|boleta|factura|mensualidad/.test(t)) categoria = 'servicios'
-  if (/sueldo|empleado|trabajador|personal|colaborador|honorario|pago a/.test(t)) categoria = 'personal'
-  if (/uber|taxi|micro|bus|bencina|gasolina|colectivo|pasaje|estacionamiento/.test(t)) categoria = 'transporte'
-  if (/publicidad|marketing|instagram|facebook|tiktok|redes|pauta|diseño|logo/.test(t)) categoria = 'marketing'
-  if (/bebida|jugo|agua|cerveza|vino|pisco|schop/.test(t) && tipo === 'ingreso') categoria = 'alimentación'
+  // ✅ Limpia el concepto — saca verbos, artículos y montos
+  // Deja solo el nombre del producto o gasto
+  let concepto = texto.trim()
 
-  return { concepto: texto.trim(), monto, tipo, categoria }
+  // Elimina el monto del concepto
+  concepto = concepto
+    .replace(/\$?\s*\d+(?:[.,]\d+)?\s*(?:palos?|lucas?|luca|mil|k)\b/gi, '')
+    .replace(/\$?\s*\d{2,}/g, '')
+    .trim()
+
+  // Elimina verbos y frases de acción al inicio
+  concepto = concepto
+    .replace(/^(vend[ií]|cobr[eé]|ingres[eé]|gan[eé]|recib[ií]|compr[eé]|gast[eé]|pagu[eé]|me pagaron|me dieron|tuve que pagar|pago de|pago del|pago a|compra de|compra del|venta de|venta del)\s*/i, '')
+    .trim()
+
+  // Elimina artículos solos al inicio (un, una, unos, el, la, los, las, de, del)
+  concepto = concepto
+    .replace(/^(un |una |unos |unas |el |la |los |las |de |del |al )/i, '')
+    .trim()
+
+  // Si el concepto quedó vacío o muy corto, usa el texto original sin monto
+  if (concepto.length < 2) {
+    concepto = texto.trim()
+      .replace(/\$?\s*\d+(?:[.,]\d+)?\s*(?:palos?|lucas?|luca|mil|k)\b/gi, '')
+      .replace(/\$?\s*\d{2,}/g, '')
+      .trim()
+  }
+
+  // Capitaliza primera letra
+  concepto = concepto.charAt(0).toUpperCase() + concepto.slice(1)
+
+  // Categorías
+  let categoria = 'general'
+  const tConcepto = concepto.toLowerCase()
+  if (/completo|empanada|pan|caf[eé]|once|colaci[oó]n|cazuela|helado|marraqueta|schop|sopaipilla|pollo|papas|ensalada|sandwich|hamburguesa|pizza/.test(tConcepto)) categoria = 'alimentación'
+  if (/harina|aceite|az[uú]car|sal|ingrediente|materia|insumo|envase|bolsa|caja|servilleta/.test(tConcepto)) categoria = 'insumos'
+  if (/arriendo|luz|agua|gas|internet|tel[eé]fono|cuenta|boleta|factura|mensualidad/.test(tConcepto)) categoria = 'servicios'
+  if (/sueldo|empleado|trabajador|personal|colaborador|honorario/.test(tConcepto)) categoria = 'personal'
+  if (/uber|taxi|micro|bus|bencina|gasolina|colectivo|pasaje|estacionamiento/.test(tConcepto)) categoria = 'transporte'
+  if (/publicidad|marketing|instagram|facebook|tiktok|redes|pauta|diseño/.test(tConcepto)) categoria = 'marketing'
+
+  return { concepto, monto, tipo, categoria }
 }
