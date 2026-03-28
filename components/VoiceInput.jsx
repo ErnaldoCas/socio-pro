@@ -74,7 +74,6 @@ export default function VoiceInput({ onResult }) {
           const data = await res.json()
 
           if (data.texto?.trim()) {
-            // 👉 AQUÍ mostramos preview en vez de guardar directo
             setPreviewTexto(data.texto.trim())
             setModoConfirmacion(true)
             setError('')
@@ -91,7 +90,6 @@ export default function VoiceInput({ onResult }) {
       mediaRecorder.start(100)
       setEstado('grabando')
 
-      // 🎧 Detección de silencio
       const audioContext = new AudioContext()
       audioContextRef.current = audioContext
       const analyser = audioContext.createAnalyser()
@@ -157,8 +155,7 @@ export default function VoiceInput({ onResult }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      
-      {/* BOTÓN MICRÓFONO */}
+
       <button
         onClick={estado === 'idle' ? iniciar : detener}
         disabled={estado === 'procesando' || modoConfirmacion}
@@ -174,7 +171,6 @@ export default function VoiceInput({ onResult }) {
         {estado === 'grabando' ? '🔴' : estado === 'procesando' ? '⏳' : '🎤'}
       </button>
 
-      {/* ESTADOS */}
       {estado === 'grabando' && (
         <p className="text-xs text-red-400 animate-pulse">escuchando...</p>
       )}
@@ -189,18 +185,12 @@ export default function VoiceInput({ onResult }) {
         </p>
       )}
 
-      {/* 🧠 PREVIEW + CONFIRMACIÓN */}
+      {/* ✅ SOLO CONFIRMACIÓN (SIN TEXTAREA) */}
       {modoConfirmacion && (
-        <div className="mt-2 w-64 bg-white border rounded-lg p-2 shadow">
-          <textarea
-            value={previewTexto}
-            onChange={(e) => setPreviewTexto(e.target.value)}
-            className="w-full text-sm border rounded p-1"
-            rows={3}
-            autoFocus
-          />
+        <div className="mt-2 max-w-64 text-right">
+          <p className="text-sm text-black">{previewTexto}</p>
 
-          <div className="flex justify-end gap-2 mt-2">
+          <div className="flex justify-end gap-2 mt-1">
             <button
               onClick={cancelar}
               className="text-xs px-2 py-1 bg-gray-100 rounded"
