@@ -4,15 +4,13 @@ import { useState, useRef } from 'react'
 export default function VoiceInput({ onResult }) {
   const [estado, setEstado] = useState('idle')
   const [error, setError] = useState('')
-  const [previewTexto, setPreviewTexto] = useState('')
-  const [modoConfirmacion, setModoConfirmacion] = useState(false)
 
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
   const audioContextRef = useRef(null)
 
   async function iniciar() {
-    if (estado !== 'idle' || modoConfirmacion) return
+    if (estado !== 'idle') return
     setError('')
 
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -74,8 +72,15 @@ export default function VoiceInput({ onResult }) {
           const data = await res.json()
 
           if (data.texto?.trim()) {
-            setPreviewTexto(data.texto.trim())
-            setModoConfirmacion(true)
+            const texto = data.texto.trim()
+
+            // ✅ CONFIRMACIÓN SIN UI EXTRA
+            const ok = window.confirm(`¿Usar este texto?\n\n"${texto}"`)
+
+            if (ok) {
+              onResult(texto)
+            }
+
             setError('')
           } else {
             setError('No se entendió, intenta de nuevo.')
@@ -142,23 +147,11 @@ export default function VoiceInput({ onResult }) {
     }
   }
 
-  function confirmar() {
-    onResult(previewTexto)
-    setPreviewTexto('')
-    setModoConfirmacion(false)
-  }
-
-  function cancelar() {
-    setPreviewTexto('')
-    setModoConfirmacion(false)
-  }
-
   return (
     <div className="flex flex-col items-end gap-1">
-
       <button
         onClick={estado === 'idle' ? iniciar : detener}
-        disabled={estado === 'procesando' || modoConfirmacion}
+        disabled={estado === 'procesando'}
         type="button"
         className={`w-11 h-11 rounded-xl border text-lg transition-all select-none flex items-center justify-center ${
           estado === 'grabando'
@@ -179,33 +172,10 @@ export default function VoiceInput({ onResult }) {
         <p className="text-xs text-blue-400">procesando...</p>
       )}
 
-      {error && estado === 'idle' && !modoConfirmacion && (
+      {error && estado === 'idle' && (
         <p className="text-xs text-red-400 max-w-40 text-right leading-tight">
           {error}
         </p>
-      )}
-
-      {/* ✅ SOLO CONFIRMACIÓN (SIN TEXTAREA) */}
-      {modoConfirmacion && (
-        <div className="mt-2 max-w-64 text-right">
-          <p className="text-sm text-black">{previewTexto}</p>
-
-          <div className="flex justify-end gap-2 mt-1">
-            <button
-              onClick={cancelar}
-              className="text-xs px-2 py-1 bg-gray-100 rounded"
-            >
-              Cancelar
-            </button>
-
-            <button
-              onClick={confirmar}
-              className="text-xs px-2 py-1 bg-green-500 text-white rounded"
-            >
-              Confirmar
-            </button>
-          </div>
-        </div>
       )}
     </div>
   )
