@@ -9,6 +9,66 @@ export default function VoiceInput({ onResult }) {
   const silencioRef = useRef(null)
   const audioContextRef = useRef(null)
 
+  // 🔢 Conversor básico de números en texto a número
+  function convertirNumeros(texto) {
+    const mapa = {
+      cero: 0,
+      uno: 1,
+      una: 1,
+      dos: 2,
+      tres: 3,
+      cuatro: 4,
+      cinco: 5,
+      seis: 6,
+      siete: 7,
+      ocho: 8,
+      nueve: 9,
+      diez: 10,
+      once: 11,
+      doce: 12,
+      trece: 13,
+      catorce: 14,
+      quince: 15,
+      veinte: 20,
+      treinta: 30,
+      cuarenta: 40,
+      cincuenta: 50,
+      sesenta: 60,
+      setenta: 70,
+      ochenta: 80,
+      noventa: 90,
+      cien: 100,
+      ciento: 100,
+      mil: 1000
+    }
+
+    const palabras = texto.toLowerCase().split(' ')
+    let resultado = []
+    let acumulador = 0
+
+    for (let palabra of palabras) {
+      if (mapa[palabra] !== undefined) {
+        if (palabra === 'mil') {
+          acumulador = (acumulador || 1) * 1000
+          resultado.push(acumulador)
+          acumulador = 0
+        } else {
+          acumulador += mapa[palabra]
+        }
+      } else {
+        if (acumulador > 0) {
+          resultado.push(acumulador)
+          acumulador = 0
+        }
+        resultado.push(palabra)
+      }
+    }
+
+    if (acumulador > 0) resultado.push(acumulador)
+
+    return resultado.join(' ')
+  }
+
   async function iniciar() {
     if (estado !== 'idle') return
     setError('')
@@ -19,7 +79,7 @@ export default function VoiceInput({ onResult }) {
     }
 
     try {
-      // 🔥 ACTIVAR AUDIO CONTEXT EN EL PRIMER CLIC
+      // 🔥 Activar AudioContext en primer clic
       const audioContext = new (window.AudioContext || window.webkitAudioContext)()
       if (audioContext.state === 'suspended') {
         await audioContext.resume()
@@ -84,7 +144,9 @@ export default function VoiceInput({ onResult }) {
           const data = await res.json()
 
           if (data.texto?.trim()) {
-            onResult(data.texto.trim())
+            // 🔢 AQUÍ SE CONVIERTEN LOS NÚMEROS
+            const textoProcesado = convertirNumeros(data.texto.trim())
+            onResult(textoProcesado)
             setError('')
           } else {
             setError('No se entendió, intenta de nuevo.')
@@ -99,7 +161,6 @@ export default function VoiceInput({ onResult }) {
       mediaRecorder.start(100)
       setEstado('grabando')
 
-      // ✅ Detección de silencio
       const analyser = audioContext.createAnalyser()
       const source = audioContext.createMediaStreamSource(stream)
       source.connect(analyser)
