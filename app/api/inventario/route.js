@@ -1,11 +1,17 @@
+import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+
+const admin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 async function getSupabase() {
   const cookieStore = await cookies()
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() { return cookieStore.getAll() },
@@ -17,6 +23,43 @@ async function getSupabase() {
       },
     }
   )
+}
+
+// Dispara notificación push si el stock quedó bajo el mínimo
+async function notificarStockBajoSiCorresponde(
+  producto: { id: string; nombre: string; stock: number; stock_minimo: number },
+  negocioId: string,
+  baseUrl: string
+) {
+  if (producto.stock <= producto.stock_minimo) {
+    await fetch(`${baseUrl}/api/push/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        negocioId,
+        title: '⚠️ Stock bajo',
+        body: `${producto.nombre} tiene solo ${producto.stock} unidades (mínimo: ${producto.stock_minimo})`,
+        url: '/inventario',
+      }),
+    }).catch(() => {}) // No bloquear si falla la notificación
+  }
+}
+
+// Obtener negocio_id del usuario actual
+async function getNegocioId(userId: string): Promise<string | null> {
+  const { data: negocio } = await admin
+    .from('negocios')
+    .select('id')
+    .eq('owner_id', userId)
+    .single()
+  if (negocio) return negocio.id
+
+  const { data: colaborador } = await admin
+    .from('colaboradores')
+    .select('negocio_id')
+    .eq('user_id', userId)
+    .single()
+  return colaborador?.negocio_id || null
 }
 
 export async function GET() {
@@ -59,7 +102,7 @@ export async function GET() {
   return Response.json(data || [])
 }
 
-export async function POST(request) {
+export async function POST(request: Request) {
   const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
@@ -75,24 +118,35 @@ export async function POST(request) {
   }
 
   const body = await request.json()
+  const stock = Number(body.stock) || 0
+  const stockMinimo = Number(body.stock_minimo) || 5
+
   const { data, error } = await supabase
     .from('productos')
     .insert([{
       nombre: body.nombre,
-      stock: Number(body.stock) || 0,
+      stock,
       precio: Number(body.precio) || 0,
       costo: Number(body.costo) || 0,
-      stock_minimo: Number(body.stock_minimo) || 5,
+      stock_minimo: stockMinimo,
       categoria: body.categoria || 'general',
       user_id: user.id
     }])
     .select()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Notificar si el stock inicial ya está bajo el mínimo
+  const negocioId = await getNegocioId(user.id)
+  if (negocioId && data[0]) {
+    const baseUrl = request.headers.get('origin') || ''
+    await notificarStockBajoSiCorresponde(data[0], negocioId, baseUrl)
+  }
+
   return Response.json(data[0])
 }
 
-export async function PUT(request) {
+export async function PUT(request: Request) {
   const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
@@ -108,22 +162,28 @@ export async function PUT(request) {
   }
 
   const body = await request.json()
+  const stock = Number(body.stock) || 0
+  const stockMinimo = Number(body.stock_minimo) || 5
+
   const { data, error } = await supabase
     .from('productos')
-    .update({
-      stock: Number(body.stock) || 0,
-      precio: Number(body.precio) || 0,
-      costo: Number(body.costo) || 0,
-      stock_minimo: Number(body.stock_minimo) || 5
-    })
+    .update({ stock, precio: Number(body.precio) || 0, costo: Number(body.costo) || 0, stock_minimo: stockMinimo })
     .eq('id', body.id)
     .select()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Notificar si el stock quedó bajo el mínimo
+  const negocioId = await getNegocioId(user.id)
+  if (negocioId && data[0]) {
+    const baseUrl = request.headers.get('origin') || ''
+    await notificarStockBajoSiCorresponde(data[0], negocioId, baseUrl)
+  }
+
   return Response.json(data[0])
 }
 
-export async function PATCH(request) {
+export async function PATCH(request: Request) {
   const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
@@ -143,7 +203,7 @@ export async function PATCH(request) {
 
   const { data: producto } = await supabase
     .from('productos')
-    .select('stock')
+    .select('stock, stock_minimo, nombre')
     .eq('id', id)
     .single()
 
@@ -158,10 +218,18 @@ export async function PATCH(request) {
     .select()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Notificar si el nuevo stock quedó bajo el mínimo
+  const negocioId = await getNegocioId(user.id)
+  if (negocioId && data[0]) {
+    const baseUrl = request.headers.get('origin') || ''
+    await notificarStockBajoSiCorresponde(data[0], negocioId, baseUrl)
+  }
+
   return Response.json(data[0])
 }
 
-export async function DELETE(request) {
+export async function DELETE(request: Request) {
   const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
@@ -172,7 +240,7 @@ export async function DELETE(request) {
   const { error } = await supabase
     .from('productos')
     .delete()
-    .eq('id', id)
+    .eq('id', id!)
     .eq('user_id', user.id)
 
   if (error) return Response.json({ error: error.message }, { status: 500 })

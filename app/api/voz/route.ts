@@ -11,8 +11,7 @@ export async function POST(request: Request) {
   groqForm.append('model', 'whisper-large-v3-turbo')
   groqForm.append('language', 'es')
   groqForm.append('response_format', 'json')
-  // ✅ Prompt con chilenismos para que Whisper los reconozca correctamente
-  groqForm.append('prompt', 'Transcripción de un emprendedor chileno registrando movimientos de su negocio. Puede usar términos como: lucas, luca, palo, palos, weón, po, cachai, fome, piola, al tiro, altiro, ya po, vendí, cobré, gasté, compré, pagué, quedé, debo, me quedé, completo, once, colación, cazuela, marraqueta, schop, palta, pollo, papas fritas, bebida, jugo. Montos en pesos chilenos.')
+  groqForm.append('prompt', 'Transcripción de un emprendedor chileno registrando ventas y gastos. IMPORTANTE: escribe SIEMPRE los montos y cantidades en números arábigos, nunca en palabras. Ejemplos: "dos mil" → "2000", "cinco lucas" → "5000", "un palo" → "1000000", "tres mil quinientos" → "3500", "veinte" → "20", "cien" → "100", "un completo a dos mil quinientos" → "un completo a 2500". Términos chilenos frecuentes: lucas, luca, palo, palos, vendí, cobré, gasté, compré, pagué, completo, once, colación, cazuela, marraqueta, schop, palta, bebida.')
 
   const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
     method: 'POST',
