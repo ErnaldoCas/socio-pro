@@ -27,40 +27,34 @@ function getAdmin() {
   )
 }
 
-// ─── Detección de cantidad ────────────────────────────────────────────────────
-// Casos que maneja:
-// "vendí 2 café 3200"       → 2  (número antes, ignorando precio)
-// "vendí un café 1600"      → 1  (palabra "un/una" antes)
-// "café x3"                 → 3  (x/× después)
-// "vendí café 1600"         → 1  (solo precio, sin cantidad = 1 por defecto)
-// "vendí 2 café con leche"  → 2  (número antes de nombre compuesto)
-function detectarCantidad(texto: string, nombreProducto: string): number {
-  const t = texto.toLowerCase()
-  const escaped = nombreProducto.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// Elimina acentos para comparación flexible
+// "café" === "cafe", "Anvejas" === "anvejas"
+function sinAcentos(str: string): string {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
 
-  // 1. Número seguido de artículo opcional + producto
-  // "2 café", "2 un café", "vendí 2 cafés"
+function detectarCantidad(texto: string, nombreProducto: string): number {
+  const t = sinAcentos(texto)
+  const nombre = sinAcentos(nombreProducto)
+  const escaped = nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  // Número antes del producto (con artículo opcional entre medio)
+  // "2 café", "vendí 2 café 3200"
   const reNumAntes = new RegExp(`(\\d+)\\s+(?:un|una|unos|unas\\s+)?${escaped}`)
   const mNumAntes = t.match(reNumAntes)
   if (mNumAntes) {
     const cantidad = parseInt(mNumAntes[1])
-    // Ignorar si el número es claramente un precio (>= 100 y no hay otro número antes)
+    // Si es < 100 es cantidad, si es >= 100 es precio
     if (cantidad < 100) return cantidad
   }
 
-  // 2. "un/una" antes del producto → cantidad 1
-  const reUnAntes = new RegExp(`\\bun(?:a)?\\s+${escaped}`)
-  if (reUnAntes.test(t)) return 1
-
-  // 3. x/× después del producto: "café x3"
+  // x/× después del producto: "café x3"
   const reX = new RegExp(`${escaped}\\s*[x×]\\s*(\\d+)`)
   const mX = t.match(reX)
-  if (mX) return Math.min(parseInt(mX[1]), 999)
+  if (mX) return Math.min(parseInt(mX[1]), 99)
 
-  // 4. Default: 1 unidad
   return 1
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: string) {
   console.log('descontarStock:', { textoOriginal, tipo, duenoUserId })
@@ -75,18 +69,19 @@ async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: 
   console.log('Productos:', productos?.map(p => p.nombre))
   if (!productos?.length) return
 
-  const t = textoOriginal.toLowerCase()
+  const tNorm = sinAcentos(textoOriginal)
 
   for (const producto of productos) {
-    const nombre = producto.nombre.toLowerCase()
-    if (!t.includes(nombre)) continue
+    const nombreNorm = sinAcentos(producto.nombre)
 
-    const cantidad = detectarCantidad(textoOriginal, nombre)
-    console.log('Match:', nombre, '| Cantidad:', cantidad, '| Stock actual:', producto.stock)
+    if (!tNorm.includes(nombreNorm)) continue
+
+    const cantidad = detectarCantidad(textoOriginal, producto.nombre)
+    console.log('Match:', producto.nombre, '| Cantidad:', cantidad, '| Stock:', producto.stock)
 
     const nuevoStock = Math.max(0, producto.stock - cantidad)
     await admin.from('productos').update({ stock: nuevoStock }).eq('id', producto.id)
-    console.log('Stock actualizado a:', nuevoStock)
+    console.log('Nuevo stock:', nuevoStock)
     break
   }
 }
