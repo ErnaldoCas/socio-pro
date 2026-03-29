@@ -1,80 +1,177 @@
-export function parsearMovimiento(texto: string) {
-  const t = texto.toLowerCase().trim()
+import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 
-  const palabrasIngreso = /vend[ií]|cobr[eé]|ingres[eé]|gan[eé]|recib[ií]|pagaron|vendido|cobrado|venta|me pagaron|me dieron|entraron|cayeron|cayó|llegaron|llegó|junt[eé]|sac[aé]|saqué/
-  const palabrasEgreso = /compr[eé]|gast[eé]|pagu[eé]|cost[oó]|compramos|gasto|debo|sal[ií]o|sali[oó]|fuero|fueron|desembolso|perd[ií]|me cost[oó]|me salió|tuve que pagar|ocup[eé]|saqué para/
+async function getSupabase() {
+  const cookieStore = await cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+}
 
-  let tipo = 'egreso'
-  if (palabrasIngreso.test(t) && !palabrasEgreso.test(t)) tipo = 'ingreso'
-  if (!palabrasIngreso.test(t) && !palabrasEgreso.test(t)) {
-    if (/completo|empanada|café|bebida|jugo|pan|helado|schop|palta/.test(t)) tipo = 'ingreso'
+function getAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+// ─── Descuento de stock ───────────────────────────────────────────────────────
+async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: string) {
+  if (tipo !== 'ingreso') return
+
+  const admin = getAdmin()
+  const { data: productos } = await admin
+    .from('productos')
+    .select('id, nombre, stock, stock_minimo')
+    .eq('user_id', duenoUserId)
+
+  if (!productos?.length) return
+
+  const t = textoOriginal.toLowerCase()
+
+  for (const producto of productos) {
+    const nombre = producto.nombre.toLowerCase()
+    if (!t.includes(nombre)) continue
+
+    // Detectar cantidad antes o después del nombre del producto
+    const escaped = nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const reAntes = new RegExp(`(\\d+)\\s+${escaped}`)
+    const reDespues = new RegExp(`${escaped}\\s*[x×]?\\s*(\\d+)`)
+    const mAntes = t.match(reAntes)
+    const mDespues = t.match(reDespues)
+
+    let cantidad = 1
+    if (mAntes) cantidad = parseInt(mAntes[1])
+    else if (mDespues) cantidad = parseInt(mDespues[1])
+
+    const nuevoStock = Math.max(0, producto.stock - cantidad)
+    await admin.from('productos').update({ stock: nuevoStock }).eq('id', producto.id)
+    break // Solo el primer producto que matchee
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function GET(request: Request) {
+  const supabase = await getSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
+
+  const admin = getAdmin()
+  const { searchParams } = new URL(request.url)
+  const colaboradorId = searchParams.get('colaborador_id')
+
+  const { data: negocio } = await admin
+    .from('negocios').select('id').eq('owner_id', user.id).maybeSingle()
+
+  const { data: colaborador } = await admin
+    .from('colaboradores').select('id, negocio_id')
+    .eq('user_id', user.id).eq('estado', 'activo').maybeSingle()
+
+  let query = admin.from('movimientos').select('*').order('created_at', { ascending: false })
+
+  if (negocio) {
+    query = query.eq('negocio_id', negocio.id)
+    if (colaboradorId) query = query.eq('colaborador_id', colaboradorId)
+  } else if (colaborador) {
+    query = query.eq('negocio_id', colaborador.negocio_id).eq('colaborador_id', colaborador.id)
+  } else {
+    query = query.eq('user_id', user.id)
   }
 
-  let monto = 0
+  const { data, error } = await query
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json(data || [])
+}
 
-  const palo = t.match(/(\d+(?:[.,]\d+)?)\s*palos?/)
-  if (palo) monto = parseFloat(palo[1].replace(',', '.')) * 1000000
+export async function POST(request: Request) {
+  const supabase = await getSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
 
-  const lucas = t.match(/(\d+(?:[.,]\d+)?)\s*lucas/)
-  if (lucas && monto === 0) monto = parseFloat(lucas[1].replace(',', '.')) * 1000
+  const admin = getAdmin()
+  const body = await request.json()
 
-  const luca = t.match(/(\d+(?:[.,]\d+)?)\s*luca\b/)
-  if (luca && monto === 0) monto = parseFloat(luca[1].replace(',', '.')) * 1000
+  const { data: colaborador } = await admin
+    .from('colaboradores').select('id, negocio_id')
+    .eq('user_id', user.id).eq('estado', 'activo').maybeSingle()
 
-  const kmil = t.match(/(\d+(?:[.,]\d+)?)\s*k\b/)
-  if (kmil && monto === 0) monto = parseFloat(kmil[1].replace(',', '.')) * 1000
+  const { data: negocio } = await admin
+    .from('negocios').select('id, owner_id').eq('owner_id', user.id).maybeSingle()
 
-  const mil = t.match(/(\d+(?:[.,]\d+)?)\s*mil\b/)
-  if (mil && monto === 0) monto = parseFloat(mil[1].replace(',', '.')) * 1000
+  const negocioId = negocio?.id || colaborador?.negocio_id || null
+  if (!negocioId) return Response.json({ error: 'No se encontró negocio asociado' }, { status: 400 })
 
-  if (/medio palo/.test(t) && monto === 0) monto = 500000
-  if (/media luca/.test(t) && monto === 0) monto = 500
+  const { data, error } = await admin
+    .from('movimientos')
+    .insert([{
+      concepto: body.concepto,
+      monto: body.monto,
+      tipo: body.tipo,
+      categoria: body.categoria,
+      user_id: user.id,
+      colaborador_id: colaborador?.id || null,
+      negocio_id: negocioId
+    }])
+    .select()
 
-  const directo = t.match(/\$?\s*(\d{2,})/)
-  if (directo && monto === 0) monto = parseFloat(directo[1])
+  if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  monto = Math.round(monto)
+  // ✅ Usar textoOriginal (enviado desde el frontend) para detectar producto y cantidad
+  const textoParaMatch = body.textoOriginal || body.concepto || ''
+  let duenoUserId = negocio?.owner_id || user.id
 
-  // ✅ Limpia el concepto — saca verbos, artículos y montos
-  // Deja solo el nombre del producto o gasto
-  let concepto = texto.trim()
-
-  // Elimina el monto del concepto
-  concepto = concepto
-    .replace(/\$?\s*\d+(?:[.,]\d+)?\s*(?:palos?|lucas?|luca|mil|k)\b/gi, '')
-    .replace(/\$?\s*\d{2,}/g, '')
-    .trim()
-
-  // Elimina verbos y frases de acción al inicio
-  concepto = concepto
-    .replace(/^(vend[ií]|cobr[eé]|ingres[eé]|gan[eé]|recib[ií]|compr[eé]|gast[eé]|pagu[eé]|me pagaron|me dieron|tuve que pagar|pago de|pago del|pago a|compra de|compra del|venta de|venta del)\s*/i, '')
-    .trim()
-
-  // Elimina artículos solos al inicio (un, una, unos, el, la, los, las, de, del)
-  concepto = concepto
-    .replace(/^(un |una |unos |unas |el |la |los |las |de |del |al )/i, '')
-    .trim()
-
-  // Si el concepto quedó vacío o muy corto, usa el texto original sin monto
-  if (concepto.length < 2) {
-    concepto = texto.trim()
-      .replace(/\$?\s*\d+(?:[.,]\d+)?\s*(?:palos?|lucas?|luca|mil|k)\b/gi, '')
-      .replace(/\$?\s*\d{2,}/g, '')
-      .trim()
+  if (!negocio && colaborador) {
+    const { data: neg } = await admin
+      .from('negocios').select('owner_id').eq('id', colaborador.negocio_id).single()
+    if (neg) duenoUserId = neg.owner_id
   }
 
-  // Capitaliza primera letra
-  concepto = concepto.charAt(0).toUpperCase() + concepto.slice(1)
+  await descontarStock(textoParaMatch, body.tipo, duenoUserId)
 
-  // Categorías
-  let categoria = 'general'
-  const tConcepto = concepto.toLowerCase()
-  if (/completo|empanada|pan|caf[eé]|once|colaci[oó]n|cazuela|helado|marraqueta|schop|sopaipilla|pollo|papas|ensalada|sandwich|hamburguesa|pizza/.test(tConcepto)) categoria = 'alimentación'
-  if (/harina|aceite|az[uú]car|sal|ingrediente|materia|insumo|envase|bolsa|caja|servilleta/.test(tConcepto)) categoria = 'insumos'
-  if (/arriendo|luz|agua|gas|internet|tel[eé]fono|cuenta|boleta|factura|mensualidad/.test(tConcepto)) categoria = 'servicios'
-  if (/sueldo|empleado|trabajador|personal|colaborador|honorario/.test(tConcepto)) categoria = 'personal'
-  if (/uber|taxi|micro|bus|bencina|gasolina|colectivo|pasaje|estacionamiento/.test(tConcepto)) categoria = 'transporte'
-  if (/publicidad|marketing|instagram|facebook|tiktok|redes|pauta|diseño/.test(tConcepto)) categoria = 'marketing'
+  return Response.json(data[0])
+}
 
-  return { concepto, monto, tipo, categoria }
+export async function PUT(request: Request) {
+  const supabase = await getSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
+
+  const admin = getAdmin()
+  const body = await request.json()
+
+  const { data, error } = await admin
+    .from('movimientos')
+    .update({ concepto: body.concepto, monto: Number(body.monto), tipo: body.tipo, categoria: body.categoria })
+    .eq('id', body.id).eq('user_id', user.id).select()
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json(data[0])
+}
+
+export async function DELETE(request: Request) {
+  const supabase = await getSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
+
+  const admin = getAdmin()
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+
+  const { error } = await admin
+    .from('movimientos').delete().eq('id', id!).eq('user_id', user.id)
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+  return Response.json({ success: true })
 }

@@ -27,20 +27,11 @@ function getAdmin() {
   )
 }
 
-// ─── Descuento automático de stock ───────────────────────────────────────────
-// Busca si el concepto menciona un producto del inventario y descuenta stock
-async function descontarStockSiCorresponde(
-  concepto: string,
-  tipo: string,
-  negocioId: string,
-  duenoUserId: string
-) {
-  // Solo descuenta en ingresos (ventas)
+// ─── Descuento de stock ───────────────────────────────────────────────────────
+async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: string) {
   if (tipo !== 'ingreso') return
 
   const admin = getAdmin()
-
-  // Traer todos los productos del negocio
   const { data: productos } = await admin
     .from('productos')
     .select('id, nombre, stock, stock_minimo')
@@ -48,56 +39,26 @@ async function descontarStockSiCorresponde(
 
   if (!productos?.length) return
 
-  const conceptoLower = concepto.toLowerCase()
+  const t = textoOriginal.toLowerCase()
 
   for (const producto of productos) {
-    const nombreLower = producto.nombre.toLowerCase()
+    const nombre = producto.nombre.toLowerCase()
+    if (!t.includes(nombre)) continue
 
-    // ¿El concepto menciona este producto?
-    if (!conceptoLower.includes(nombreLower)) continue
+    // Detectar cantidad antes o después del nombre del producto
+    const escaped = nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const reAntes = new RegExp(`(\\d+)\\s+${escaped}`)
+    const reDespues = new RegExp(`${escaped}\\s*[x×]?\\s*(\\d+)`)
+    const mAntes = t.match(reAntes)
+    const mDespues = t.match(reDespues)
 
-    // Detectar cantidad — busca número antes o después del nombre del producto
-    // Ejemplos: "3 completos", "completos x5", "2 empanadas a 1500"
     let cantidad = 1
+    if (mAntes) cantidad = parseInt(mAntes[1])
+    else if (mDespues) cantidad = parseInt(mDespues[1])
 
-    const matchAntes = concepto.match(new RegExp(`(\\d+)\\s+${nombreLower}`, 'i'))
-    const matchDespues = concepto.match(new RegExp(`${nombreLower}\\s*[x×]?\\s*(\\d+)`, 'i'))
-
-    if (matchAntes) cantidad = parseInt(matchAntes[1])
-    else if (matchDespues) cantidad = parseInt(matchDespues[1])
-
-    // Descontar stock (mínimo 0)
     const nuevoStock = Math.max(0, producto.stock - cantidad)
-
-    await admin
-      .from('productos')
-      .update({ stock: nuevoStock })
-      .eq('id', producto.id)
-
-    // Si quedó bajo el mínimo, disparar notificación push (si está configurado)
-    if (nuevoStock <= producto.stock_minimo) {
-      const { data: negocio } = await admin
-        .from('negocios')
-        .select('id')
-        .eq('owner_id', duenoUserId)
-        .single()
-
-      if (negocio) {
-        fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('supabase.co', 'vercel.app')}/api/push/notify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            negocioId: negocio.id,
-            title: '⚠️ Stock bajo',
-            body: `${producto.nombre} tiene solo ${nuevoStock} unidades`,
-            url: '/inventario',
-          }),
-        }).catch(() => {})
-      }
-    }
-
-    // Solo descuenta el primer producto que matchee
-    break
+    await admin.from('productos').update({ stock: nuevoStock }).eq('id', producto.id)
+    break // Solo el primer producto que matchee
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,29 +73,19 @@ export async function GET(request: Request) {
   const colaboradorId = searchParams.get('colaborador_id')
 
   const { data: negocio } = await admin
-    .from('negocios')
-    .select('id')
-    .eq('owner_id', user.id)
-    .maybeSingle()
+    .from('negocios').select('id').eq('owner_id', user.id).maybeSingle()
 
   const { data: colaborador } = await admin
-    .from('colaboradores')
-    .select('id, negocio_id')
-    .eq('user_id', user.id)
-    .eq('estado', 'activo')
-    .maybeSingle()
+    .from('colaboradores').select('id, negocio_id')
+    .eq('user_id', user.id).eq('estado', 'activo').maybeSingle()
 
-  let query = admin
-    .from('movimientos')
-    .select('*')
-    .order('created_at', { ascending: false })
+  let query = admin.from('movimientos').select('*').order('created_at', { ascending: false })
 
   if (negocio) {
     query = query.eq('negocio_id', negocio.id)
     if (colaboradorId) query = query.eq('colaborador_id', colaboradorId)
   } else if (colaborador) {
-    query = query.eq('negocio_id', colaborador.negocio_id)
-    query = query.eq('colaborador_id', colaborador.id)
+    query = query.eq('negocio_id', colaborador.negocio_id).eq('colaborador_id', colaborador.id)
   } else {
     query = query.eq('user_id', user.id)
   }
@@ -153,17 +104,11 @@ export async function POST(request: Request) {
   const body = await request.json()
 
   const { data: colaborador } = await admin
-    .from('colaboradores')
-    .select('id, negocio_id')
-    .eq('user_id', user.id)
-    .eq('estado', 'activo')
-    .maybeSingle()
+    .from('colaboradores').select('id, negocio_id')
+    .eq('user_id', user.id).eq('estado', 'activo').maybeSingle()
 
   const { data: negocio } = await admin
-    .from('negocios')
-    .select('id, owner_id')
-    .eq('owner_id', user.id)
-    .maybeSingle()
+    .from('negocios').select('id, owner_id').eq('owner_id', user.id).maybeSingle()
 
   const negocioId = negocio?.id || colaborador?.negocio_id || null
   if (!negocioId) return Response.json({ error: 'No se encontró negocio asociado' }, { status: 400 })
@@ -183,24 +128,17 @@ export async function POST(request: Request) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  // ✅ Descontar stock si es una venta que menciona un producto del inventario
-  // Obtener el owner_id del negocio para buscar sus productos
+  // ✅ Usar textoOriginal (enviado desde el frontend) para detectar producto y cantidad
+  const textoParaMatch = body.textoOriginal || body.concepto || ''
   let duenoUserId = negocio?.owner_id || user.id
+
   if (!negocio && colaborador) {
-    const { data: negocioDelColaborador } = await admin
-      .from('negocios')
-      .select('owner_id')
-      .eq('id', colaborador.negocio_id)
-      .single()
-    if (negocioDelColaborador) duenoUserId = negocioDelColaborador.owner_id
+    const { data: neg } = await admin
+      .from('negocios').select('owner_id').eq('id', colaborador.negocio_id).single()
+    if (neg) duenoUserId = neg.owner_id
   }
 
-  await descontarStockSiCorresponde(
-    body.concepto,
-    body.tipo,
-    negocioId,
-    duenoUserId
-  )
+  await descontarStock(textoParaMatch, body.tipo, duenoUserId)
 
   return Response.json(data[0])
 }
@@ -215,15 +153,8 @@ export async function PUT(request: Request) {
 
   const { data, error } = await admin
     .from('movimientos')
-    .update({
-      concepto: body.concepto,
-      monto: Number(body.monto),
-      tipo: body.tipo,
-      categoria: body.categoria
-    })
-    .eq('id', body.id)
-    .eq('user_id', user.id)
-    .select()
+    .update({ concepto: body.concepto, monto: Number(body.monto), tipo: body.tipo, categoria: body.categoria })
+    .eq('id', body.id).eq('user_id', user.id).select()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json(data[0])
@@ -239,10 +170,7 @@ export async function DELETE(request: Request) {
   const id = searchParams.get('id')
 
   const { error } = await admin
-    .from('movimientos')
-    .delete()
-    .eq('id', id!)
-    .eq('user_id', user.id)
+    .from('movimientos').delete().eq('id', id!).eq('user_id', user.id)
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ success: true })

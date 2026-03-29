@@ -113,12 +113,13 @@ export default function Home() {
     setMensaje('')
     setMensajeError(false)
 
-    const { concepto, monto, tipo, categoria } = parsearMovimiento(input)
+    const textoOriginal = input.trim()
+    const { concepto, monto, tipo, categoria } = parsearMovimiento(textoOriginal)
 
     const res = await fetch('/api/movimientos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ concepto, monto, tipo, categoria })
+      body: JSON.stringify({ concepto, monto, tipo, categoria, textoOriginal })
     })
 
     if (res.ok) {
