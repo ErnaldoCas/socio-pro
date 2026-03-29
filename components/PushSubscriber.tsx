@@ -9,35 +9,25 @@ export default function PushSubscriber() {
       setEstado('no_soportado')
       return
     }
-    if (Notification.permission === 'granted') {
-      setEstado('activado')
-    } else if (Notification.permission === 'denied') {
-      setEstado('denegado')
-    }
+    if (Notification.permission === 'granted') setEstado('activado')
+    else if (Notification.permission === 'denied') setEstado('denegado')
   }, [])
 
   async function activar() {
     try {
-      // Registrar service worker
       const reg = await navigator.serviceWorker.register('/sw.js')
       await navigator.serviceWorker.ready
 
-      // Pedir permiso
       const permiso = await Notification.requestPermission()
-      if (permiso !== 'granted') {
-        setEstado('denegado')
-        return
-      }
+      if (permiso !== 'granted') { setEstado('denegado'); return }
 
-      // Suscribirse al push
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY as string
         ),
       })
 
-      // Guardar en servidor
       await fetch('/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +72,7 @@ export default function PushSubscriber() {
         background: 'var(--card)',
         border: '1px solid var(--card-border)',
         borderRadius: 12,
-        cursor: 'pointer',
+        cursor: estado === 'denegado' ? 'not-allowed' : 'pointer',
         transition: 'background 0.2s',
       }}
     >
@@ -102,7 +92,6 @@ export default function PushSubscriber() {
         </div>
       </div>
 
-      {/* Pill indicador */}
       <div style={{
         width: 44,
         height: 24,
@@ -129,10 +118,14 @@ export default function PushSubscriber() {
   )
 }
 
-// Convierte la clave VAPID de base64 a Uint8Array
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
   const rawData = atob(base64)
-  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)))
+  const buffer = new ArrayBuffer(rawData.length)
+  const output = new Uint8Array(buffer)
+  for (let i = 0; i < rawData.length; i++) {
+    output[i] = rawData.charCodeAt(i)
+  }
+  return output
 }

@@ -6,6 +6,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import PushSubscriber from '@/components/PushSubscriber'
+
+// Dentro de la sección Apariencia:
+<PushSubscriber />
 
 export default function Config() {
   const router = useRouter()
