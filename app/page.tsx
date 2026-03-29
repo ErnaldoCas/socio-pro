@@ -6,9 +6,11 @@ import VoiceInput from '@/components/VoiceInput'
 import Graficos from '@/components/Graficos'
 import HealthScore from '@/components/HealthScore'
 import WelcomeModal from '@/components/WelcomeModal'
+import OnboardingDrawer from '@/components/OnboardingDrawer'
 import { useState, useEffect, useRef } from 'react'
 import { parsearMovimiento } from '@/lib/nlpParser'
 import { useRol } from '@/hooks/useRol'
+import { createClient } from '@/lib/supabase'
 
 export default function Home() {
   const [input, setInput] = useState('')
@@ -22,6 +24,11 @@ export default function Home() {
   const [nombreDueno, setNombreDueno] = useState<string | null>(null)
   const [mostrarModal, setMostrarModal] = useState(false)
   const [negocioCargado, setNegocioCargado] = useState(false)
+
+  // Onboarding
+  const [mostrarOnboarding, setMostrarOnboarding] = useState(false)
+  const [negocioId, setNegocioId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const { rol, permisos } = useRol()
@@ -43,9 +50,31 @@ export default function Home() {
     const nombre = data.negocio?.nombre_dueno || null
     setNombreDueno(nombre)
     setNegocioCargado(true)
-    // ✅ Muestra modal solo si es dueño y no tiene nombre guardado
+
+    // Modal de bienvenida si es dueño y no tiene nombre guardado
     if (data.rol === 'dueño' && !nombre) {
       setMostrarModal(true)
+    }
+
+    // Onboarding: solo para dueños, solo si no está completado
+    if (data.rol === 'dueño' && data.negocio?.id) {
+      setNegocioId(data.negocio.id)
+
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+        const { data: negocio } = await supabase
+          .from('negocios')
+          .select('onboarding_completado')
+          .eq('id', data.negocio.id)
+          .single()
+
+        if (negocio && !negocio.onboarding_completado) {
+          // Pequeño delay para que no choque con el WelcomeModal
+          setTimeout(() => setMostrarOnboarding(true), 300)
+        }
+      }
     }
   }
 
@@ -105,7 +134,6 @@ export default function Home() {
     setLoading(false)
   }
 
-  // ✅ Saludo según hora del día
   function getSaludo() {
     const hora = new Date().getHours()
     if (hora >= 6 && hora < 12) return 'Buenos días'
@@ -119,7 +147,7 @@ export default function Home() {
 
   return (
     <AuthGuard>
-      {/* ✅ Modal de bienvenida si no hay nombre */}
+      {/* Modal de bienvenida si no hay nombre */}
       {mostrarModal && (
         <WelcomeModal
           onGuardar={(nombre) => {
@@ -129,10 +157,24 @@ export default function Home() {
         />
       )}
 
+      {/* Onboarding drawer — solo usuarios nuevos */}
+      {mostrarOnboarding && negocioId && userId && (
+        <OnboardingDrawer
+          userId={userId}
+          negocioId={negocioId}
+          onCompletado={() => {
+            setMostrarOnboarding(false)
+            // Recargar negocio por si se guardó nombre en el onboarding
+            cargarNegocio()
+            cargarMovimientos()
+          }}
+        />
+      )}
+
       <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          {/* ✅ Saludo personalizado */}
+          {/* Saludo personalizado */}
           {negocioCargado && nombreDueno && (
             <div className="mb-4 mt-2">
               <p className="text-lg font-semibold text-gray-800">
