@@ -2,8 +2,7 @@
 import { useState, useRef } from 'react'
 
 export default function VoiceInput({ onResult }) {
-  const [estado, setEstado] = useState('idle')
-  const [textoTranscrito, setTextoTranscrito] = useState('')
+  const [estado, setEstado] = useState('idle') // idle | grabando | procesando
   const [error, setError] = useState('')
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
@@ -11,7 +10,6 @@ export default function VoiceInput({ onResult }) {
 
   async function iniciar() {
     setError('')
-    setTextoTranscrito('')
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Tu navegador no soporta grabación.')
@@ -62,16 +60,16 @@ export default function VoiceInput({ onResult }) {
           const data = await res.json()
 
           if (data.texto?.trim()) {
-            setTextoTranscrito(data.texto.trim())
-            setEstado('confirmar')
+            // ✅ Directo al input — sin paso de confirmación
+            onResult(data.texto.trim())
           } else {
             setError('No se entendió, intenta de nuevo.')
-            setEstado('idle')
           }
         } catch {
           setError('Error al procesar.')
-          setEstado('idle')
         }
+
+        setEstado('idle')
       }
 
       mediaRecorder.start(100)
@@ -116,69 +114,41 @@ export default function VoiceInput({ onResult }) {
     }
   }
 
-  function confirmar() {
-    onResult(textoTranscrito)
-    setTextoTranscrito('')
-    setEstado('idle')
-  }
-
-  function reintentar() {
-    setTextoTranscrito('')
-    setEstado('idle')
+  // Tooltip de error: desaparece solo después de 3s
+  function mostrarError(msg) {
+    setError(msg)
+    setTimeout(() => setError(''), 3000)
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="relative flex flex-col items-center">
 
-      {/* Botón principal */}
-      {(estado === 'idle' || estado === 'grabando' || estado === 'procesando') && (
-        <button
-          onClick={estado === 'idle' ? iniciar : estado === 'grabando' ? detener : undefined}
-          disabled={estado === 'procesando'}
-          type="button"
-          className={`w-11 h-11 rounded-xl border text-lg transition-all select-none flex items-center justify-center ${
-            estado === 'grabando'
-              ? 'bg-red-500 border-red-400 text-white shadow-md animate-pulse'
-              : estado === 'procesando'
-              ? 'bg-blue-50 border-blue-200 text-blue-400'
-              : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-green-50 hover:border-green-300 active:scale-95'
-          }`}
-        >
-          {estado === 'grabando' ? '⏹' : estado === 'procesando' ? '⏳' : '🎤'}
-        </button>
-      )}
+      {/* Botón único — cambia según estado */}
+      <button
+        onClick={estado === 'idle' ? iniciar : estado === 'grabando' ? detener : undefined}
+        disabled={estado === 'procesando'}
+        type="button"
+        title={
+          estado === 'idle' ? 'Grabar con voz'
+          : estado === 'grabando' ? 'Toca para detener'
+          : 'Procesando...'
+        }
+        className={`w-11 h-11 rounded-xl border text-lg transition-all select-none flex items-center justify-center ${
+          estado === 'grabando'
+            ? 'bg-red-500 border-red-400 text-white animate-pulse'
+            : estado === 'procesando'
+            ? 'bg-gray-100 border-gray-200 text-gray-300 cursor-not-allowed'
+            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-green-50 hover:border-green-300 active:scale-95'
+        }`}
+      >
+        {estado === 'grabando' ? '⏹' : estado === 'procesando' ? '⏳' : '🎤'}
+      </button>
 
-      {estado === 'grabando' && (
-        <p className="text-xs text-red-400 animate-pulse">escuchando... toca para detener</p>
-      )}
-      {estado === 'procesando' && (
-        <p className="text-xs text-blue-400">procesando...</p>
-      )}
-
-      {/* ✅ Vista de confirmación */}
-      {estado === 'confirmar' && (
-        <div className="bg-white border border-gray-200 rounded-xl p-3 w-64 shadow-sm">
-          <p className="text-xs text-gray-400 mb-1">¿Esto es lo que dijiste?</p>
-          <p className="text-sm text-gray-800 font-medium mb-3 leading-snug">"{textoTranscrito}"</p>
-          <div className="flex gap-2">
-            <button
-              onClick={reintentar}
-              className="flex-1 border border-gray-200 text-gray-500 rounded-lg py-1.5 text-xs hover:bg-gray-50"
-            >
-              Reintentar
-            </button>
-            <button
-              onClick={confirmar}
-              className="flex-1 bg-green-600 text-white rounded-lg py-1.5 text-xs font-medium hover:bg-green-700"
-            >
-              Confirmar ✓
-            </button>
-          </div>
-        </div>
-      )}
-
-      {error && estado === 'idle' && (
-        <p className="text-xs text-red-400 max-w-40 text-right leading-tight">{error}</p>
+      {/* Error como tooltip pequeño debajo del botón — no desplaza layout */}
+      {error && (
+        <p className="absolute top-12 right-0 text-xs text-red-400 bg-white border border-red-100 rounded-lg px-2 py-1 whitespace-nowrap shadow-sm z-10">
+          {error}
+        </p>
       )}
     </div>
   )
