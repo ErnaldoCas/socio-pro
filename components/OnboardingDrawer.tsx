@@ -273,6 +273,8 @@ export default function OnboardingDrawer({ userId, negocioId, onCompletado }: Pr
                     outline: 'none',
                     boxSizing: 'border-box',
                     transition: 'border-color 0.2s',
+                    color: '#111827',
+                    background: 'white',
                   }}
                   onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
                   onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
@@ -297,6 +299,8 @@ export default function OnboardingDrawer({ userId, negocioId, onCompletado }: Pr
                     outline: 'none',
                     boxSizing: 'border-box',
                     transition: 'border-color 0.2s',
+                    color: '#111827',
+                    background: 'white',
                   }}
                   onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
                   onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
@@ -325,6 +329,8 @@ export default function OnboardingDrawer({ userId, negocioId, onCompletado }: Pr
                     fontSize: 15,
                     outline: 'none',
                     boxSizing: 'border-box',
+                    color: '#111827',
+                    background: 'white',
                   }}
                   onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
                   onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
@@ -349,6 +355,8 @@ export default function OnboardingDrawer({ userId, negocioId, onCompletado }: Pr
                       fontSize: 15,
                       outline: 'none',
                       boxSizing: 'border-box',
+                      color: '#111827',
+                      background: 'white',
                     }}
                     onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
                     onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
@@ -371,6 +379,8 @@ export default function OnboardingDrawer({ userId, negocioId, onCompletado }: Pr
                       fontSize: 15,
                       outline: 'none',
                       boxSizing: 'border-box',
+                      color: '#111827',
+                      background: 'white',
                     }}
                     onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
                     onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
@@ -399,6 +409,8 @@ export default function OnboardingDrawer({ userId, negocioId, onCompletado }: Pr
                   fontSize: 15,
                   outline: 'none',
                   boxSizing: 'border-box',
+                  color: '#111827',
+                  background: 'white',
                 }}
                 onFocus={(e) => (e.target.style.borderColor = '#16a34a')}
                 onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
