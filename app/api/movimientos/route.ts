@@ -168,6 +168,7 @@ export async function POST(request: Request) {
     if (neg) duenoUserId = neg.owner_id
   }
 
+  console.log('ANTES DE DESCONTAR:', { textoParaMatch, tipo: body.tipo, duenoUserId })
   await descontarStock(textoParaMatch, body.tipo, duenoUserId)
 
   return Response.json(data[0])
