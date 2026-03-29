@@ -28,8 +28,17 @@ function getAdmin() {
 }
 
 // ─── Descuento de stock ───────────────────────────────────────────────────────
+// Reglas para cantidad:
+// ✅ "3 cafés"   → número ANTES del producto = cantidad
+// ✅ "café x3"   → número con x/× después = cantidad
+// ❌ "café 1600" → número solo después SIN x = precio, NO cantidad
 async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: string) {
-  if (tipo !== 'ingreso') return
+  console.log('descontarStock llamado:', { textoOriginal, tipo, duenoUserId })
+
+  if (tipo !== 'ingreso') {
+    console.log('No es ingreso, no descuenta')
+    return
+  }
 
   const admin = getAdmin()
   const { data: productos } = await admin
@@ -37,28 +46,44 @@ async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: 
     .select('id, nombre, stock, stock_minimo')
     .eq('user_id', duenoUserId)
 
+  console.log('Productos encontrados:', productos?.map(p => p.nombre))
+
   if (!productos?.length) return
 
   const t = textoOriginal.toLowerCase()
 
   for (const producto of productos) {
     const nombre = producto.nombre.toLowerCase()
+
     if (!t.includes(nombre)) continue
 
-    // Detectar cantidad antes o después del nombre del producto
+    console.log('Producto matched:', nombre)
+
     const escaped = nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+    // Solo número ANTES: "3 cafés", "vendí 3 café"
     const reAntes = new RegExp(`(\\d+)\\s+${escaped}`)
-    const reDespues = new RegExp(`${escaped}\\s*[x×]?\\s*(\\d+)`)
+    // Solo con x/×: "café x3", "café×2"
+    const reX = new RegExp(`${escaped}\\s*[x×]\\s*(\\d+)`)
+
     const mAntes = t.match(reAntes)
-    const mDespues = t.match(reDespues)
+    const mX = t.match(reX)
 
     let cantidad = 1
     if (mAntes) cantidad = parseInt(mAntes[1])
-    else if (mDespues) cantidad = parseInt(mDespues[1])
+    else if (mX) cantidad = parseInt(mX[1])
+
+    // Límite de seguridad
+    cantidad = Math.min(cantidad, 999)
+
+    console.log('Cantidad detectada:', cantidad, '| Stock actual:', producto.stock)
 
     const nuevoStock = Math.max(0, producto.stock - cantidad)
+
     await admin.from('productos').update({ stock: nuevoStock }).eq('id', producto.id)
-    break // Solo el primer producto que matchee
+
+    console.log('Stock actualizado a:', nuevoStock)
+    break
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,6 +128,12 @@ export async function POST(request: Request) {
   const admin = getAdmin()
   const body = await request.json()
 
+  console.log('POST movimientos body:', {
+    concepto: body.concepto,
+    tipo: body.tipo,
+    textoOriginal: body.textoOriginal
+  })
+
   const { data: colaborador } = await admin
     .from('colaboradores').select('id, negocio_id')
     .eq('user_id', user.id).eq('estado', 'activo').maybeSingle()
@@ -128,7 +159,6 @@ export async function POST(request: Request) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  // ✅ Usar textoOriginal (enviado desde el frontend) para detectar producto y cantidad
   const textoParaMatch = body.textoOriginal || body.concepto || ''
   let duenoUserId = negocio?.owner_id || user.id
 
