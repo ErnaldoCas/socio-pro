@@ -480,7 +480,9 @@ export default function OnboardingDrawer({ userId, negocioId, onCompletado }: Pr
 
         {/* Footer con botones */}
         <div style={{
-          padding: '16px 24px 32px',
+          padding: '16px 24px',
+          paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+          background: 'white',
           borderTop: '1px solid #f3f4f6',
           display: 'flex',
           gap: 10,
