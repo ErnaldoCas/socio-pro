@@ -17,7 +17,6 @@ export default function Reportes() {
   const { rol } = useRol()
   const esDueno = rol === 'dueño'
 
-  // ✅ Carga todo de una vez sin depender de esDueno
   useEffect(() => {
     cargarMovimientos()
     cargarColaboradores()
@@ -142,19 +141,34 @@ export default function Reportes() {
 
   async function exportarExcel() {
     setExportando(true)
-    const XLSX = (await import('xlsx')).default
-    const datos = filtrados.map(m => ({
-      Fecha: new Date(m.created_at).toLocaleDateString('es-CL'),
-      Concepto: m.concepto,
-      Tipo: m.tipo,
-      Monto: m.monto,
-      Categoria: m.categoria || 'general',
-      'Registrado por': getNombreColaborador(m)
-    }))
-    const ws = XLSX.utils.json_to_sheet(datos)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Movimientos')
-    XLSX.writeFile(wb, 'socio-pro-reporte.xlsx')
+    try {
+      const XLSX = await import('xlsx')
+      const datos = filtrados.map(m => ({
+        Fecha: new Date(m.created_at).toLocaleDateString('es-CL'),
+        Concepto: m.concepto,
+        Tipo: m.tipo,
+        Monto: m.monto,
+        Categoria: m.categoria || 'general',
+        'Registrado por': getNombreColaborador(m)
+      }))
+      const ws = XLSX.utils.json_to_sheet(datos)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Movimientos')
+
+      // ✅ Usar write + blob en vez de writeFile — funciona en mobile y PWA
+      const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `socio-pro-reporte-${new Date().toLocaleDateString('es-CL').replace(/\//g, '-')}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Error exportando Excel:', e)
+    }
     setExportando(false)
   }
 
@@ -226,7 +240,9 @@ export default function Reportes() {
     const a = document.createElement('a')
     a.href = url
     a.download = 'socio-pro-reporte.html'
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     URL.revokeObjectURL(url)
     setExportando(false)
   }
@@ -303,7 +319,6 @@ export default function Reportes() {
                 </select>
               </div>
 
-              {/* Filtro por colaborador — aparece si hay colaboradores */}
               {colaboradores.length > 0 && (
                 <div className="col-span-2">
                   <p className="text-xs text-gray-400 mb-1">Registrado por</p>
@@ -382,12 +397,9 @@ export default function Reportes() {
                         <span className="text-xs text-gray-300">
                           {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                         </span>
-                        {/* ✅ Badge visible si hay colaboradores */}
                         {colaboradores.length > 0 && (
                           <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                            m.colaborador_id
-                              ? 'bg-blue-50 text-blue-600'
-                              : 'bg-green-50 text-green-700'
+                            m.colaborador_id ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-700'
                           }`}>
                             {getNombreColaborador(m)}
                           </span>
@@ -409,14 +421,14 @@ export default function Reportes() {
                   disabled={exportando || filtrados.length === 0}
                   className="bg-green-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-all"
                 >
-                  {exportando ? 'Exportando...' : 'Descargar Excel'}
+                  {exportando ? 'Exportando...' : '📊 Descargar Excel'}
                 </button>
                 <button
                   onClick={exportarReporte}
                   disabled={exportando || filtrados.length === 0}
                   className="bg-blue-600 text-white rounded-lg py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-all"
                 >
-                  {exportando ? 'Exportando...' : 'Descargar Reporte'}
+                  {exportando ? 'Exportando...' : '📄 Descargar Reporte'}
                 </button>
               </div>
             </div>

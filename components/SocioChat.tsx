@@ -2,16 +2,17 @@
 import { useState, useRef, useEffect } from 'react'
 
 function formatearRespuesta(content: string) {
-  const tieneFormato = content.includes('🎓 EXPERTO') || content.includes('🤝 SOCIO') || content.includes('📚 APRENDE HOY')
+  const tieneFormato = content.includes('🎓') || content.includes('🤝') || content.includes('📚')
   if (!tieneFormato) return <p className="text-sm text-gray-800 leading-relaxed">{content}</p>
 
   const bloques = []
 
-  const experto = content.match(/🎓 EXPERTO\n([\s\S]*?)(?=🤝 SOCIO|$)/)
-  const socio = content.match(/🤝 SOCIO\n([\s\S]*?)(?=📚 APRENDE HOY|$)/)
-  const aprende = content.match(/📚 APRENDE HOY\n([\s\S]*?)$/)
+  // Regex más permisivo: acepta variaciones de formato del modelo
+  const experto = content.match(/🎓[^\n]*\n([\s\S]*?)(?=🤝|$)/)
+  const socio = content.match(/🤝[^\n]*\n([\s\S]*?)(?=📚|$)/)
+  const aprende = content.match(/📚[^\n]*\n([\s\S]*)/)
 
-  if (experto) {
+  if (experto?.[1]?.trim()) {
     bloques.push(
       <div key="experto" className="mb-3">
         <div className="flex items-center gap-1.5 mb-1.5">
@@ -19,13 +20,13 @@ function formatearRespuesta(content: string) {
           <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Experto</span>
         </div>
         <div className="bg-purple-50 border border-purple-100 rounded-xl px-3 py-2.5">
-          <p className="text-xs text-purple-900 leading-relaxed">{experto[1].trim()}</p>
+          <p className="text-xs text-purple-900 leading-relaxed whitespace-pre-wrap">{experto[1].trim()}</p>
         </div>
       </div>
     )
   }
 
-  if (socio) {
+  if (socio?.[1]?.trim()) {
     bloques.push(
       <div key="socio" className="mb-3">
         <div className="flex items-center gap-1.5 mb-1.5">
@@ -33,13 +34,13 @@ function formatearRespuesta(content: string) {
           <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Socio</span>
         </div>
         <div className="bg-green-50 border border-green-100 rounded-xl px-3 py-2.5">
-          <p className="text-xs text-green-900 leading-relaxed">{socio[1].trim()}</p>
+          <p className="text-xs text-green-900 leading-relaxed whitespace-pre-wrap">{socio[1].trim()}</p>
         </div>
       </div>
     )
   }
 
-  if (aprende) {
+  if (aprende?.[1]?.trim()) {
     const terminos = aprende[1].trim().split('\n').filter(l => l.trim())
     bloques.push(
       <div key="aprende">
@@ -49,7 +50,8 @@ function formatearRespuesta(content: string) {
         </div>
         <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-1.5">
           {terminos.map((t, i) => {
-            const partes = t.replace(/\*\*/g, '').split(':')
+            const limpio = t.replace(/\*\*/g, '').replace(/^[-•]\s*/, '').trim()
+            const partes = limpio.split(':')
             if (partes.length >= 2) {
               return (
                 <div key={i}>
@@ -58,11 +60,16 @@ function formatearRespuesta(content: string) {
                 </div>
               )
             }
-            return <p key={i} className="text-xs text-amber-900">{t}</p>
+            return <p key={i} className="text-xs text-amber-900">{limpio}</p>
           })}
         </div>
       </div>
     )
+  }
+
+  // Si no se parseó ningún bloque, mostrar el texto completo
+  if (bloques.length === 0) {
+    return <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{content}</p>
   }
 
   return <div>{bloques}</div>
@@ -77,9 +84,7 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (suggestion) {
-      setInput(suggestion)
-    }
+    if (suggestion) setInput(suggestion)
   }, [suggestion])
 
   useEffect(() => {

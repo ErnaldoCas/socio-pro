@@ -77,7 +77,6 @@ async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: 
     if (!tNorm.includes(nombreNorm)) continue
 
     const cantidad = detectarCantidad(textoOriginal, producto.nombre)
-    console.log('STOCK:', producto.nombre, '| cantidad:', cantidad, '| texto:', textoOriginal)
 
     const nuevoStock = Math.max(0, producto.stock - cantidad)
     await admin.from('productos').update({ stock: nuevoStock }).eq('id', producto.id)
