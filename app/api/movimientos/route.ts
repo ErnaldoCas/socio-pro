@@ -33,7 +33,8 @@ function sinAcentos(str: string): string {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
-function detectarCantidad(texto: string, nombreProducto: string): number {
+const cantidad = detectarCantidad(textoOriginal, producto.nombre)
+console.log('CANTIDAD:', cantidad, 'TEXTO:', textoOriginal, 'PRODUCTO:', producto.nombre) {
   const t = sinAcentos(texto)
   const nombre = sinAcentos(nombreProducto)
   const escaped = nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
