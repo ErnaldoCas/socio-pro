@@ -7,7 +7,6 @@ function formatearRespuesta(content: string) {
 
   const bloques = []
 
-  // Regex más permisivo: acepta variaciones de formato del modelo
   const experto = content.match(/🎓[^\n]*\n([\s\S]*?)(?=🤝|$)/)
   const socio = content.match(/🤝[^\n]*\n([\s\S]*?)(?=📚|$)/)
   const aprende = content.match(/📚[^\n]*\n([\s\S]*)/)
@@ -67,7 +66,6 @@ function formatearRespuesta(content: string) {
     )
   }
 
-  // Si no se parseó ningún bloque, mostrar el texto completo
   if (bloques.length === 0) {
     return <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{content}</p>
   }
@@ -75,12 +73,20 @@ function formatearRespuesta(content: string) {
   return <div>{bloques}</div>
 }
 
+interface Message {
+  role: string
+  content: string
+}
+
 export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) {
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: '¡Hola! Soy tu Socio Experto. Cada respuesta tiene 3 partes: análisis profesional, explicación simple y un término para aprender. ¡Pregúntame lo que quieras!' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  // guardando: índice del mensaje que se está guardando, guardado: índices ya guardados
+  const [guardando, setGuardando] = useState<number | null>(null)
+  const [guardados, setGuardados] = useState<Set<number>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -114,6 +120,27 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
     setLoading(false)
   }
 
+  async function guardarAnalisis(idx: number) {
+    // Buscar la pregunta del usuario justo antes de esta respuesta
+    const respuesta = messages[idx].content
+    const pregunta = messages[idx - 1]?.content || 'Análisis general'
+
+    setGuardando(idx)
+    try {
+      const res = await fetch('/api/analisis-historial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pregunta, respuesta })
+      })
+      if (res.ok) {
+        setGuardados(prev => new Set([...prev, idx]))
+      }
+    } catch {
+      // silencioso
+    }
+    setGuardando(null)
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 mt-4">
       <div className="p-4 border-b border-gray-50">
@@ -123,7 +150,7 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
 
       <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
         {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
             {m.role === 'user' ? (
               <div className="max-w-xs px-4 py-2.5 rounded-2xl rounded-br-sm text-sm leading-relaxed bg-green-600 text-white">
                 {m.content}
@@ -131,6 +158,22 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
             ) : (
               <div className="w-full">
                 {formatearRespuesta(m.content)}
+                {/* Botón guardar — solo en respuestas del asistente que no sean el saludo inicial */}
+                {i > 0 && (
+                  <div className="mt-2 flex justify-end">
+                    {guardados.has(i) ? (
+                      <span className="text-xs text-green-600 font-medium">✓ Guardado en Reportes</span>
+                    ) : (
+                      <button
+                        onClick={() => guardarAnalisis(i)}
+                        disabled={guardando === i}
+                        className="text-xs text-gray-400 hover:text-green-600 border border-gray-200 hover:border-green-300 px-3 py-1 rounded-full transition-all disabled:opacity-50"
+                      >
+                        {guardando === i ? 'Guardando...' : '💾 Guardar análisis'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
