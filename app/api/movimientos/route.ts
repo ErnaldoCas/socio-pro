@@ -57,7 +57,6 @@ function detectarCantidad(texto: string, nombreProducto: string): number {
 }
 
 async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: string) {
-  console.log('descontarStock:', { textoOriginal, tipo, duenoUserId })
   if (tipo !== 'ingreso') return
 
   const admin = getAdmin()
@@ -66,7 +65,6 @@ async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: 
     .select('id, nombre, stock, stock_minimo')
     .eq('user_id', duenoUserId)
 
-  console.log('Productos:', productos?.map(p => p.nombre))
   if (!productos?.length) return
 
   const tNorm = sinAcentos(textoOriginal)
@@ -77,11 +75,9 @@ async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: 
     if (!tNorm.includes(nombreNorm)) continue
 
     const cantidad = detectarCantidad(textoOriginal, producto.nombre)
-    console.log('Match:', producto.nombre, '| Cantidad:', cantidad, '| Stock:', producto.stock)
 
     const nuevoStock = Math.max(0, producto.stock - cantidad)
     await admin.from('productos').update({ stock: nuevoStock }).eq('id', producto.id)
-    console.log('Nuevo stock:', nuevoStock)
     break
   }
 }
@@ -126,7 +122,6 @@ export async function POST(request: Request) {
   const admin = getAdmin()
   const body = await request.json()
 
-  console.log('POST movimientos:', { concepto: body.concepto, tipo: body.tipo, textoOriginal: body.textoOriginal })
 
   const { data: colaborador } = await admin
     .from('colaboradores').select('id, negocio_id')
@@ -162,7 +157,6 @@ export async function POST(request: Request) {
     if (neg) duenoUserId = neg.owner_id
   }
 
-  console.log('ANTES DE DESCONTAR:', { textoParaMatch, tipo: body.tipo, duenoUserId })
   await descontarStock(textoParaMatch, body.tipo, duenoUserId)
 
   return Response.json(data[0])
