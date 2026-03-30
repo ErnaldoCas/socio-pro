@@ -28,24 +28,26 @@ function getAdmin() {
 }
 
 // Elimina acentos para comparación flexible
-// "café" === "cafe", "Anvejas" === "anvejas"
 function sinAcentos(str: string): string {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
-const cantidad = detectarCantidad(textoOriginal, producto.nombre)
-console.log('CANTIDAD:', cantidad, 'TEXTO:', textoOriginal, 'PRODUCTO:', producto.nombre) {
+// Detecta cantidad vendida en el texto original
+// ✅ "3 completos" → 3
+// ✅ "2 café 3200" → 2
+// ✅ "un café"     → 1
+// ✅ "café x3"     → 3
+// ✅ "café 1600"   → 1 (1600 es precio, no cantidad)
+function detectarCantidad(texto: string, nombreProducto: string): number {
   const t = sinAcentos(texto)
   const nombre = sinAcentos(nombreProducto)
   const escaped = nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-  // Número antes del producto (con artículo opcional entre medio)
-  // "2 café", "vendí 2 café 3200"
+  // Número antes del producto (ignora artículos como "un/una" entre medio)
   const reNumAntes = new RegExp(`(\\d+)\\s+(?:un|una|unos|unas\\s+)?${escaped}`)
   const mNumAntes = t.match(reNumAntes)
   if (mNumAntes) {
     const cantidad = parseInt(mNumAntes[1])
-    // Si es < 100 es cantidad, si es >= 100 es precio
     if (cantidad < 100) return cantidad
   }
 
@@ -72,10 +74,10 @@ async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: 
 
   for (const producto of productos) {
     const nombreNorm = sinAcentos(producto.nombre)
-
     if (!tNorm.includes(nombreNorm)) continue
 
     const cantidad = detectarCantidad(textoOriginal, producto.nombre)
+    console.log('STOCK:', producto.nombre, '| cantidad:', cantidad, '| texto:', textoOriginal)
 
     const nuevoStock = Math.max(0, producto.stock - cantidad)
     await admin.from('productos').update({ stock: nuevoStock }).eq('id', producto.id)
@@ -122,7 +124,6 @@ export async function POST(request: Request) {
 
   const admin = getAdmin()
   const body = await request.json()
-
 
   const { data: colaborador } = await admin
     .from('colaboradores').select('id, negocio_id')
