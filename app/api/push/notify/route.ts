@@ -1,69 +1,50 @@
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import webpush from 'web-push'
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function getSupabase() {
-  const cookieStore = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-}
+webpush.setVapidDetails(
+  'mailto:' + (process.env.VAPID_EMAIL || 'hola@sociopro.cl'),
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+  process.env.VAPID_PRIVATE_KEY!
+)
 
-// POST — guardar suscripción
 export async function POST(request: Request) {
-  const supabase = await getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
+  const { negocioId, title, body, url } = await request.json()
+  if (!negocioId) return Response.json({ error: 'negocioId requerido' }, { status: 400 })
 
-  const { subscription } = await request.json()
-  if (!subscription?.endpoint) return Response.json({ error: 'Suscripción inválida' }, { status: 400 })
-
-  const { data: negocio } = await admin
-    .from('negocios').select('id').eq('owner_id', user.id).maybeSingle()
-
-  const { data: colaborador } = await admin
-    .from('colaboradores').select('negocio_id').eq('user_id', user.id).maybeSingle()
-
-  const negocioId = negocio?.id || colaborador?.negocio_id
-  if (!negocioId) return Response.json({ error: 'Negocio no encontrado' }, { status: 404 })
-
-  const { error } = await admin
+  const { data: suscripciones } = await admin
     .from('push_subscriptions')
-    .upsert({
-      user_id: user.id,
-      negocio_id: negocioId,
-      endpoint: subscription.endpoint,
-      p256dh: subscription.keys.p256dh,
-      auth: subscription.keys.auth,
-    }, { onConflict: 'user_id,endpoint' })
+    .select('*')
+    .eq('negocio_id', negocioId)
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json({ ok: true })
-}
+  if (!suscripciones?.length) return Response.json({ ok: true, enviados: 0 })
 
-// DELETE — eliminar suscripción
-export async function DELETE(request: Request) {
-  const supabase = await getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 })
+  const payload = JSON.stringify({
+    title,
+    body,
+    url: url || '/inventario',
+    tag: 'stock-bajo'
+  })
 
-  const { endpoint } = await request.json()
-  await admin.from('push_subscriptions').delete().eq('user_id', user.id).eq('endpoint', endpoint)
-  return Response.json({ ok: true })
+  const resultados = await Promise.allSettled(
+    suscripciones.map(sub =>
+      webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payload
+      ).catch(async (err: any) => {
+        // Suscripción expirada → eliminar
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await admin.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+        }
+        throw err
+      })
+    )
+  )
+
+  const enviados = resultados.filter(r => r.status === 'fulfilled').length
+  return Response.json({ ok: true, enviados })
 }
