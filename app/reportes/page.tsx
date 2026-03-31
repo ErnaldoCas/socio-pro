@@ -1,8 +1,66 @@
 'use client'
 import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRol } from '@/hooks/useRol'
+
+// ─── Helpers comparativa ─────────────────────────────────────────────────────
+function getMesesDisponibles(movimientos: any[]) {
+  const meses = new Set<string>()
+  movimientos.forEach(m => {
+    const d = new Date(m.created_at)
+    meses.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  })
+  return Array.from(meses).sort((a, b) => b.localeCompare(a))
+}
+
+function nombreMes(ym: string) {
+  const [y, m] = ym.split('-')
+  return new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })
+}
+
+function metricasMes(movimientos: any[], ym: string) {
+  const [y, m] = ym.split('-').map(Number)
+  const mov = movimientos.filter(mv => {
+    const d = new Date(mv.created_at)
+    return d.getFullYear() === y && d.getMonth() + 1 === m
+  })
+  const ingresos = mov.filter(mv => mv.tipo === 'ingreso').reduce((s, mv) => s + mv.monto, 0)
+  const egresos = mov.filter(mv => mv.tipo === 'egreso').reduce((s, mv) => s + mv.monto, 0)
+  const balance = ingresos - egresos
+  const margen = ingresos > 0 ? Math.round((balance / ingresos) * 100) : 0
+  const movimientos_count = mov.length
+  const ticket = mov.filter(mv => mv.tipo === 'ingreso').length > 0
+    ? Math.round(ingresos / mov.filter(mv => mv.tipo === 'ingreso').length)
+    : 0
+
+  // Por categoría
+  const categorias: Record<string, { ingresos: number; egresos: number }> = {}
+  mov.forEach(mv => {
+    const cat = mv.categoria || 'general'
+    if (!categorias[cat]) categorias[cat] = { ingresos: 0, egresos: 0 }
+    if (mv.tipo === 'ingreso') categorias[cat].ingresos += mv.monto
+    else categorias[cat].egresos += mv.monto
+  })
+
+  return { ingresos, egresos, balance, margen, movimientos_count, ticket, categorias }
+}
+
+function diff(a: number, b: number) {
+  if (b === 0) return a > 0 ? 100 : 0
+  return Math.round(((a - b) / Math.abs(b)) * 100)
+}
+
+function DiffBadge({ valor }: { valor: number }) {
+  if (valor === 0) return <span className="text-xs text-gray-400">—</span>
+  const positivo = valor > 0
+  return (
+    <span className={`text-xs font-medium ${positivo ? 'text-green-600' : 'text-red-500'}`}>
+      {positivo ? '▲' : '▼'} {Math.abs(valor)}%
+    </span>
+  )
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Reportes() {
   const [movimientos, setMovimientos] = useState<any[]>([])
@@ -17,8 +75,11 @@ export default function Reportes() {
   const [analisisAbierto, setAnalisisAbierto] = useState<string | null>(null)
   const [eliminando, setEliminando] = useState<string | null>(null)
 
+  // Comparativa
+  const [mesA, setMesA] = useState('')
+  const [mesB, setMesB] = useState('')
+
   const { rol } = useRol()
-  const esDueno = rol === 'dueño'
 
   useEffect(() => {
     cargarMovimientos()
@@ -139,6 +200,17 @@ export default function Reportes() {
   const hoy = movimientosHoy()
   const ingresosHoy = hoy.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
   const egresosHoy = hoy.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
+
+  // Comparativa
+  const mesesDisponibles = useMemo(() => getMesesDisponibles(movimientos), [movimientos])
+  const metA = useMemo(() => mesA ? metricasMes(movimientos, mesA) : null, [movimientos, mesA])
+  const metB = useMemo(() => mesB ? metricasMes(movimientos, mesB) : null, [movimientos, mesB])
+
+  // Inicializar meses automáticamente cuando cargan los movimientos
+  useEffect(() => {
+    if (mesesDisponibles.length >= 1 && !mesA) setMesA(mesesDisponibles[0])
+    if (mesesDisponibles.length >= 2 && !mesB) setMesB(mesesDisponibles[1])
+  }, [mesesDisponibles])
 
   async function exportarExcel() {
     setExportando(true)
@@ -368,6 +440,147 @@ export default function Reportes() {
               </div>
             </div>
           </div>
+
+          {/* ─── Comparativa mes a mes ─────────────────────────────────────── */}
+          {mesesDisponibles.length >= 1 && (
+            <div className="bg-white rounded-xl border border-gray-100 mb-4">
+              <div className="px-5 py-4 border-b border-gray-50">
+                <p className="text-sm font-medium text-gray-700">📅 Comparativa mes a mes</p>
+                <p className="text-xs text-gray-400">Compara dos meses y ve cómo evolucionó el negocio</p>
+              </div>
+
+              {/* Selectores de mes */}
+              <div className="px-5 py-4 grid grid-cols-2 gap-3 border-b border-gray-50">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Mes A</p>
+                  <select value={mesA} onChange={e => setMesA(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-400">
+                    {mesesDisponibles.map(m => (
+                      <option key={m} value={m}>{nombreMes(m)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Mes B (comparar con)</p>
+                  <select value={mesB} onChange={e => setMesB(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-400">
+                    <option value="">Sin comparar</option>
+                    {mesesDisponibles.map(m => (
+                      <option key={m} value={m}>{nombreMes(m)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Tabla comparativa */}
+              {metA && (
+                <div className="px-5 py-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="text-left py-2 text-xs text-gray-400 font-medium w-1/3">Métrica</th>
+                        <th className="text-right py-2 text-xs text-gray-600 font-medium">{nombreMes(mesA)}</th>
+                        {metB && <th className="text-right py-2 text-xs text-gray-600 font-medium">{nombreMes(mesB)}</th>}
+                        {metB && <th className="text-right py-2 text-xs text-gray-400 font-medium">Diferencia</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {/* Ingresos */}
+                      <tr>
+                        <td className="py-2.5 text-xs text-gray-500">Ingresos</td>
+                        <td className="py-2.5 text-right text-sm font-medium text-green-600">${metA.ingresos.toLocaleString()}</td>
+                        {metB && <td className="py-2.5 text-right text-sm font-medium text-green-600">${metB.ingresos.toLocaleString()}</td>}
+                        {metB && <td className="py-2.5 text-right"><DiffBadge valor={diff(metA.ingresos, metB.ingresos)} /></td>}
+                      </tr>
+                      {/* Egresos */}
+                      <tr>
+                        <td className="py-2.5 text-xs text-gray-500">Egresos</td>
+                        <td className="py-2.5 text-right text-sm font-medium text-red-500">${metA.egresos.toLocaleString()}</td>
+                        {metB && <td className="py-2.5 text-right text-sm font-medium text-red-500">${metB.egresos.toLocaleString()}</td>}
+                        {metB && <td className="py-2.5 text-right"><DiffBadge valor={diff(metA.egresos, metB.egresos) * -1} /></td>}
+                      </tr>
+                      {/* Balance */}
+                      <tr className="bg-gray-50 rounded-lg">
+                        <td className="py-2.5 text-xs font-medium text-gray-700 pl-1">Balance</td>
+                        <td className={`py-2.5 text-right text-sm font-semibold ${metA.balance >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                          ${metA.balance.toLocaleString()}
+                        </td>
+                        {metB && <td className={`py-2.5 text-right text-sm font-semibold ${metB.balance >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                          ${metB.balance.toLocaleString()}
+                        </td>}
+                        {metB && <td className="py-2.5 text-right"><DiffBadge valor={diff(metA.balance, metB.balance)} /></td>}
+                      </tr>
+                      {/* Margen */}
+                      <tr>
+                        <td className="py-2.5 text-xs text-gray-500">Margen</td>
+                        <td className="py-2.5 text-right text-sm font-medium text-gray-700">{metA.margen}%</td>
+                        {metB && <td className="py-2.5 text-right text-sm font-medium text-gray-700">{metB.margen}%</td>}
+                        {metB && <td className="py-2.5 text-right"><DiffBadge valor={metA.margen - metB.margen} /></td>}
+                      </tr>
+                      {/* Movimientos */}
+                      <tr>
+                        <td className="py-2.5 text-xs text-gray-500">Movimientos</td>
+                        <td className="py-2.5 text-right text-sm font-medium text-gray-700">{metA.movimientos_count}</td>
+                        {metB && <td className="py-2.5 text-right text-sm font-medium text-gray-700">{metB.movimientos_count}</td>}
+                        {metB && <td className="py-2.5 text-right"><DiffBadge valor={diff(metA.movimientos_count, metB.movimientos_count)} /></td>}
+                      </tr>
+                      {/* Ticket promedio */}
+                      <tr>
+                        <td className="py-2.5 text-xs text-gray-500">Ticket promedio</td>
+                        <td className="py-2.5 text-right text-sm font-medium text-gray-700">${metA.ticket.toLocaleString()}</td>
+                        {metB && <td className="py-2.5 text-right text-sm font-medium text-gray-700">${metB.ticket.toLocaleString()}</td>}
+                        {metB && <td className="py-2.5 text-right"><DiffBadge valor={diff(metA.ticket, metB.ticket)} /></td>}
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Comparativa por categoría */}
+                  {metB && (() => {
+                    const todasCats = new Set([
+                      ...Object.keys(metA.categorias),
+                      ...Object.keys(metB.categorias)
+                    ])
+                    return todasCats.size > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2">Por categoría</p>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-100">
+                              <th className="text-left py-1.5 text-xs text-gray-400 font-medium">Categoría</th>
+                              <th className="text-right py-1.5 text-xs text-gray-400 font-medium">Ing. A</th>
+                              <th className="text-right py-1.5 text-xs text-gray-400 font-medium">Ing. B</th>
+                              <th className="text-right py-1.5 text-xs text-gray-400 font-medium">Dif.</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {Array.from(todasCats).map(cat => {
+                              const ingA = metA.categorias[cat]?.ingresos || 0
+                              const ingB = metB.categorias[cat]?.ingresos || 0
+                              return (
+                                <tr key={cat}>
+                                  <td className="py-2 text-xs text-gray-600 capitalize">{cat}</td>
+                                  <td className="py-2 text-right text-xs text-gray-700">${ingA.toLocaleString()}</td>
+                                  <td className="py-2 text-right text-xs text-gray-700">${ingB.toLocaleString()}</td>
+                                  <td className="py-2 text-right"><DiffBadge valor={diff(ingA, ingB)} /></td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null
+                  })()}
+                </div>
+              )}
+
+              {mesesDisponibles.length === 1 && (
+                <p className="text-xs text-gray-400 text-center py-4">
+                  Solo hay un mes con datos. Registra más movimientos para comparar.
+                </p>
+              )}
+            </div>
+          )}
+          {/* ─────────────────────────────────────────────────────────────── */}
 
           {/* Historial de análisis IA */}
           {historial.length > 0 && (
