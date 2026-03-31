@@ -1,8 +1,21 @@
 'use client'
 import { useEffect, useState } from 'react'
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = atob(base64)
+  const buffer = new ArrayBuffer(rawData.length)
+  const output = new Uint8Array(buffer)
+  for (let i = 0; i < rawData.length; i++) {
+    output[i] = rawData.charCodeAt(i)
+  }
+  return output
+}
+
 export default function PushSubscriber() {
   const [estado, setEstado] = useState<'idle' | 'activado' | 'denegado' | 'no_soportado'>('idle')
+  const [cargando, setCargando] = useState(false)
 
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -14,12 +27,17 @@ export default function PushSubscriber() {
   }, [])
 
   async function activar() {
+    setCargando(true)
     try {
       const reg = await navigator.serviceWorker.register('/sw.js')
       await navigator.serviceWorker.ready
 
       const permiso = await Notification.requestPermission()
-      if (permiso !== 'granted') { setEstado('denegado'); return }
+      if (permiso !== 'granted') {
+        setEstado('denegado')
+        setCargando(false)
+        return
+      }
 
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -38,9 +56,11 @@ export default function PushSubscriber() {
     } catch (err) {
       console.error('Error activando notificaciones:', err)
     }
+    setCargando(false)
   }
 
   async function desactivar() {
+    setCargando(true)
     try {
       const reg = await navigator.serviceWorker.getRegistration('/sw.js')
       const sub = await reg?.pushManager.getSubscription()
@@ -56,6 +76,7 @@ export default function PushSubscriber() {
     } catch (err) {
       console.error('Error desactivando:', err)
     }
+    setCargando(false)
   }
 
   if (estado === 'no_soportado') return null
@@ -63,6 +84,7 @@ export default function PushSubscriber() {
   return (
     <button
       onClick={estado === 'activado' ? desactivar : activar}
+      disabled={cargando || estado === 'denegado'}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -72,8 +94,9 @@ export default function PushSubscriber() {
         background: 'var(--card)',
         border: '1px solid var(--card-border)',
         borderRadius: 12,
-        cursor: estado === 'denegado' ? 'not-allowed' : 'pointer',
+        cursor: cargando || estado === 'denegado' ? 'not-allowed' : 'pointer',
         transition: 'background 0.2s',
+        marginTop: 8,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -83,10 +106,9 @@ export default function PushSubscriber() {
             Notificaciones push
           </p>
           <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
-            {estado === 'activado'
-              ? 'Activadas — toca para desactivar'
-              : estado === 'denegado'
-              ? 'Bloqueadas en tu navegador'
+            {cargando ? 'Configurando...'
+              : estado === 'activado' ? 'Activadas — toca para desactivar'
+              : estado === 'denegado' ? 'Bloqueadas en tu navegador'
               : 'Recibe alertas de stock bajo'}
           </p>
         </div>
@@ -116,16 +138,4 @@ export default function PushSubscriber() {
       </div>
     </button>
   )
-}
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = atob(base64)
-  const buffer = new ArrayBuffer(rawData.length)
-  const output = new Uint8Array(buffer)
-  for (let i = 0; i < rawData.length; i++) {
-    output[i] = rawData.charCodeAt(i)
-  }
-  return output
 }
