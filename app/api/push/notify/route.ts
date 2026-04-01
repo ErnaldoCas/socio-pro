@@ -6,15 +6,16 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-webpush.setVapidDetails(
-  'mailto:' + (process.env.VAPID_EMAIL || 'hola@sociopro.cl'),
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
-
 export async function POST(request: Request) {
   const { negocioId, title, body, url } = await request.json()
   if (!negocioId) return Response.json({ error: 'negocioId requerido' }, { status: 400 })
+
+  // ✅ Dentro de la función para evitar error en build time
+  webpush.setVapidDetails(
+    'mailto:' + (process.env.VAPID_EMAIL || 'hola@sociopro.cl'),
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  )
 
   const { data: suscripciones } = await admin
     .from('push_subscriptions')
@@ -36,7 +37,6 @@ export async function POST(request: Request) {
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         payload
       ).catch(async (err: any) => {
-        // Suscripción expirada → eliminar
         if (err.statusCode === 410 || err.statusCode === 404) {
           await admin.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
         }
