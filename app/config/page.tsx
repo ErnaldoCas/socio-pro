@@ -2,14 +2,11 @@
 import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
 import ThemeToggle from '@/components/ThemeToggle'
+import PushSubscriber from '@/components/PushSubscriber'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import PushSubscriber from '@/components/PushSubscriber'
-
-// Dentro de la sección Apariencia:
-<PushSubscriber />
 
 export default function Config() {
   const router = useRouter()
@@ -132,13 +129,14 @@ export default function Config() {
               </div>
             </div>
 
-            {/* Apariencia */}
+            {/* Apariencia y notificaciones */}
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 mb-4">
               <div className="px-4 py-3 border-b border-gray-50 dark:border-slate-700">
-                <p className="text-sm font-medium text-gray-700 dark:text-slate-200">Apariencia</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-slate-200">Apariencia y notificaciones</p>
               </div>
-              <div className="p-4">
+              <div className="p-4 space-y-3">
                 <ThemeToggle />
+                <PushSubscriber />
               </div>
             </div>
 
@@ -161,7 +159,6 @@ export default function Config() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
-
               <Link
                 href="/terminos"
                 target="_blank"
