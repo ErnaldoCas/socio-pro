@@ -27,23 +27,15 @@ function getAdmin() {
   )
 }
 
-// Elimina acentos para comparación flexible
 function sinAcentos(str: string): string {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
-// Detecta cantidad vendida en el texto original
-// ✅ "3 completos" → 3
-// ✅ "2 café 3200" → 2
-// ✅ "un café"     → 1
-// ✅ "café x3"     → 3
-// ✅ "café 1600"   → 1 (1600 es precio, no cantidad)
 function detectarCantidad(texto: string, nombreProducto: string): number {
   const t = sinAcentos(texto)
   const nombre = sinAcentos(nombreProducto)
   const escaped = nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-  // Número antes del producto (ignora artículos como "un/una" entre medio)
   const reNumAntes = new RegExp(`(\\d+)\\s+(?:un|una|unos|unas\\s+)?${escaped}`)
   const mNumAntes = t.match(reNumAntes)
   if (mNumAntes) {
@@ -51,7 +43,6 @@ function detectarCantidad(texto: string, nombreProducto: string): number {
     if (cantidad < 100) return cantidad
   }
 
-  // x/× después del producto: "café x3"
   const reX = new RegExp(`${escaped}\\s*[x×]\\s*(\\d+)`)
   const mX = t.match(reX)
   if (mX) return Math.min(parseInt(mX[1]), 99)
@@ -77,11 +68,21 @@ async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: 
     if (!tNorm.includes(nombreNorm)) continue
 
     const cantidad = detectarCantidad(textoOriginal, producto.nombre)
-
     const nuevoStock = Math.max(0, producto.stock - cantidad)
     await admin.from('productos').update({ stock: nuevoStock }).eq('id', producto.id)
     break
   }
+}
+
+// ✅ Obtiene siempre el owner_id del negocio, sea dueño o colaborador
+async function getDuenoUserId(userId: string, negocioId: string): Promise<string> {
+  const admin = getAdmin()
+  const { data: negocio } = await admin
+    .from('negocios')
+    .select('owner_id')
+    .eq('id', negocioId)
+    .single()
+  return negocio?.owner_id || userId
 }
 
 export async function GET(request: Request) {
@@ -149,15 +150,9 @@ export async function POST(request: Request) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
+  // ✅ Siempre obtiene el owner_id real del negocio, funciona para dueño y colaborador
   const textoParaMatch = body.textoOriginal || body.concepto || ''
-  let duenoUserId = negocio?.owner_id || user.id
-
-  if (!negocio && colaborador) {
-    const { data: neg } = await admin
-      .from('negocios').select('owner_id').eq('id', colaborador.negocio_id).single()
-    if (neg) duenoUserId = neg.owner_id
-  }
-
+  const duenoUserId = await getDuenoUserId(user.id, negocioId)
   await descontarStock(textoParaMatch, body.tipo, duenoUserId)
 
   return Response.json(data[0])
