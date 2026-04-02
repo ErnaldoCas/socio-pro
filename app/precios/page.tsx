@@ -74,7 +74,7 @@ function ContenidoPrecios() {
         </div>
         <div className="space-y-2">
           {[
-            '100 movimientos por mes',
+            '50 movimientos por mes',
             'Inventario ilimitado',
             'Dashboard y métricas',
             'Socio Experto (chat IA)',
