@@ -9,6 +9,7 @@ export default function Movimientos() {
   const [colaboradores, setColaboradores] = useState<any[]>([])
   const [filtro, setFiltro] = useState('todos')
   const [filtroColaborador, setFiltroColaborador] = useState('todos')
+  const [busqueda, setBusqueda] = useState('')
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ concepto: '', monto: '', tipo: '', categoria: '' })
@@ -17,7 +18,6 @@ export default function Movimientos() {
   const { rol } = useRol()
   const esDueno = rol === 'dueño'
 
-  // ✅ Carga todo de una vez sin depender de esDueno
   useEffect(() => {
     cargarMovimientos()
     cargarColaboradores()
@@ -80,6 +80,7 @@ export default function Movimientos() {
     return colab?.nombre || colab?.email || 'Colaborador'
   }
 
+  // ✅ Filtro por tipo + colaborador + búsqueda por concepto
   const filtrados = movimientos.filter(m => {
     const porTipo = filtro === 'todos' || m.tipo === filtro
     const porColaborador = filtroColaborador === 'todos'
@@ -87,7 +88,10 @@ export default function Movimientos() {
       : filtroColaborador === 'dueno'
       ? !m.colaborador_id
       : m.colaborador_id === filtroColaborador
-    return porTipo && porColaborador
+    const porBusqueda = !busqueda.trim() ||
+      m.concepto?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      m.categoria?.toLowerCase().includes(busqueda.toLowerCase())
+    return porTipo && porColaborador && porBusqueda
   })
 
   const ingresos = filtrados.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.monto, 0)
@@ -98,7 +102,7 @@ export default function Movimientos() {
       <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          <div className="mb-6 pt-2">
+          <div className="mb-4 pt-2">
             <h1 className="text-2xl font-semibold text-gray-800">Movimientos</h1>
             <p className="text-gray-500 text-sm">Historial completo</p>
           </div>
@@ -120,6 +124,30 @@ export default function Movimientos() {
             </div>
           </div>
 
+          {/* ✅ Buscador por concepto o categoría */}
+          <div className="relative mb-3">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder='Buscar por concepto o categoría... ej: "imprevistos"'
+              className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none focus:border-green-400"
+            />
+            {busqueda && (
+              <button
+                onClick={() => setBusqueda('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+
           {/* Filtro por tipo */}
           <div className="flex gap-2 mb-3">
             {['todos', 'ingreso', 'egreso'].map(f => (
@@ -137,26 +165,18 @@ export default function Movimientos() {
             ))}
           </div>
 
-          {/* Filtro por colaborador — solo aparece si hay colaboradores */}
+          {/* Filtro por colaborador */}
           {esDueno && colaboradores.length > 0 && (
             <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
               <button
                 onClick={() => setFiltroColaborador('todos')}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${
-                  filtroColaborador === 'todos'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-500 border border-gray-200'
-                }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filtroColaborador === 'todos' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
               >
                 Todo el equipo
               </button>
               <button
                 onClick={() => setFiltroColaborador('dueno')}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${
-                  filtroColaborador === 'dueno'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-500 border border-gray-200'
-                }`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filtroColaborador === 'dueno' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
               >
                 Solo mis registros
               </button>
@@ -164,11 +184,7 @@ export default function Movimientos() {
                 <button
                   key={c.id}
                   onClick={() => setFiltroColaborador(c.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${
-                    filtroColaborador === c.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-500 border border-gray-200'
-                  }`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filtroColaborador === c.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
                 >
                   {c.nombre || c.email}
                 </button>
@@ -176,14 +192,29 @@ export default function Movimientos() {
             </div>
           )}
 
+          {/* Resultado de búsqueda */}
+          {busqueda && (
+            <p className="text-xs text-gray-400 mb-2 ml-1">
+              {filtrados.length} resultado{filtrados.length !== 1 ? 's' : ''} para "{busqueda}"
+            </p>
+          )}
+
           <div className="bg-white rounded-xl border border-gray-100">
             {filtrados.length === 0 ? (
-              <p className="text-gray-400 text-sm text-center py-8">No hay movimientos</p>
+              <div className="text-center py-10">
+                <p className="text-gray-400 text-sm">
+                  {busqueda ? `No hay movimientos con "${busqueda}"` : 'No hay movimientos'}
+                </p>
+                {busqueda && (
+                  <button onClick={() => setBusqueda('')} className="text-xs text-green-600 mt-2 hover:underline">
+                    Limpiar búsqueda
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="divide-y divide-gray-50">
                 {filtrados.map(m => (
                   <div key={m.id}>
-
                     {editandoId === m.id ? (
                       <div className="p-4 bg-gray-50">
                         <p className="text-xs font-medium text-gray-600 mb-3">Editar movimiento</p>
@@ -225,63 +256,44 @@ export default function Movimientos() {
                             <option value="marketing">Marketing</option>
                           </select>
                           <div className="grid grid-cols-2 gap-2 pt-1">
-                            <button
-                              onClick={() => setEditandoId(null)}
-                              className="border border-gray-200 text-gray-500 rounded-lg py-2 text-sm hover:bg-gray-100"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              onClick={() => guardarEdicion(m.id)}
-                              disabled={guardando}
-                              className="bg-green-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-                            >
+                            <button onClick={() => setEditandoId(null)} className="border border-gray-200 text-gray-500 rounded-lg py-2 text-sm hover:bg-gray-100">Cancelar</button>
+                            <button onClick={() => guardarEdicion(m.id)} disabled={guardando} className="bg-green-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50">
                               {guardando ? 'Guardando...' : 'Guardar'}
                             </button>
                           </div>
                         </div>
                       </div>
-
                     ) : confirmandoId === m.id ? (
                       <div className="p-4 bg-red-50">
                         <p className="text-sm text-red-700 font-medium mb-1">¿Eliminar este movimiento?</p>
                         <p className="text-xs text-red-500 mb-3 truncate">{m.concepto} — ${m.monto.toLocaleString()}</p>
                         <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => setConfirmandoId(null)}
-                            className="border border-gray-200 text-gray-500 rounded-lg py-2 text-sm hover:bg-gray-100 bg-white"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            onClick={() => eliminar(m.id)}
-                            className="bg-red-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-red-600"
-                          >
-                            Sí, eliminar
-                          </button>
+                          <button onClick={() => setConfirmandoId(null)} className="border border-gray-200 text-gray-500 rounded-lg py-2 text-sm hover:bg-gray-100 bg-white">Cancelar</button>
+                          <button onClick={() => eliminar(m.id)} className="bg-red-500 text-white rounded-lg py-2 text-sm font-medium hover:bg-red-600">Sí, eliminar</button>
                         </div>
                       </div>
-
                     ) : (
                       <div className="p-4 flex justify-between items-center">
                         <div className="flex-1 min-w-0 mr-3">
-                          <p className="text-sm text-gray-800 truncate">{m.concepto}</p>
+                          <p className="text-sm text-gray-800 truncate">
+                            {/* Resaltar término buscado */}
+                            {busqueda ? (() => {
+                              const idx = m.concepto?.toLowerCase().indexOf(busqueda.toLowerCase())
+                              if (idx === -1) return m.concepto
+                              return <>
+                                {m.concepto.slice(0, idx)}
+                                <mark className="bg-yellow-100 text-yellow-800 rounded px-0.5">{m.concepto.slice(idx, idx + busqueda.length)}</mark>
+                                {m.concepto.slice(idx + busqueda.length)}
+                              </>
+                            })() : m.concepto}
+                          </p>
                           <div className="flex gap-2 mt-0.5 flex-wrap items-center">
-                            {m.categoria && (
-                              <span className="text-xs text-gray-400">{m.categoria}</span>
-                            )}
+                            {m.categoria && <span className="text-xs text-gray-400">{m.categoria}</span>}
                             <span className="text-xs text-gray-300">
-                              {new Date(m.created_at).toLocaleDateString('es-CL', {
-                                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                              })}
+                              {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </span>
-                            {/* ✅ Badge quién registró — visible para el dueño */}
                             {colaboradores.length > 0 && (
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                                m.colaborador_id
-                                  ? 'bg-blue-50 text-blue-600'
-                                  : 'bg-green-50 text-green-700'
-                              }`}>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${m.colaborador_id ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-700'}`}>
                                 {getNombreColaborador(m)}
                               </span>
                             )}
@@ -291,22 +303,11 @@ export default function Movimientos() {
                           <span className={`text-sm font-medium ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-500'}`}>
                             {m.tipo === 'ingreso' ? '+' : '-'}${m.monto.toLocaleString()}
                           </span>
-                          <button
-                            onClick={() => iniciarEdicion(m)}
-                            className="text-xs text-blue-500 border border-blue-100 bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => setConfirmandoId(m.id)}
-                            className="text-xs text-red-400 border border-red-100 bg-red-50 px-2 py-1 rounded-lg hover:bg-red-100 transition-colors"
-                          >
-                            Eliminar
-                          </button>
+                          <button onClick={() => iniciarEdicion(m)} className="text-xs text-blue-500 border border-blue-100 bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors">Editar</button>
+                          <button onClick={() => setConfirmandoId(m.id)} className="text-xs text-red-400 border border-red-100 bg-red-50 px-2 py-1 rounded-lg hover:bg-red-100 transition-colors">Eliminar</button>
                         </div>
                       </div>
                     )}
-
                   </div>
                 ))}
               </div>
