@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import TutorialDrawer from '@/components/TutorialDrawer'
 
 export default function Config() {
   const router = useRouter()
@@ -16,6 +17,7 @@ export default function Config() {
   const [guardandoNegocio, setGuardandoNegocio] = useState(false)
   const [mensajeDueno, setMensajeDueno] = useState('')
   const [mensajeNegocio, setMensajeNegocio] = useState('')
+  const [mostrarTutorial, setMostrarTutorial] = useState(false)
 
   useEffect(() => {
     cargarNegocio()
@@ -62,6 +64,9 @@ export default function Config() {
 
   return (
     <AuthGuard>
+      {mostrarTutorial && (
+        <TutorialDrawer onCerrar={() => setMostrarTutorial(false)} />
+      )}
       <div className="min-h-screen bg-gray-100 dark:bg-slate-900">
         <main className="p-4 pt-16 pb-24">
           <div className="max-w-2xl mx-auto">
@@ -142,6 +147,23 @@ export default function Config() {
 
             {/* Opciones */}
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 mb-4">
+              <button
+                onClick={() => setMostrarTutorial(true)}
+                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all border-b border-gray-50 dark:border-slate-700"
+              >
+                <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                  </svg>
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium text-gray-800 dark:text-slate-100">Tutorial de uso</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-400">Aprende a sacarle el máximo provecho a Socio Pro</p>
+                </div>
+                <svg className="w-4 h-4 text-gray-300 dark:text-slate-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
               <Link
                 href="/equipo"
                 className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all border-b border-gray-50 dark:border-slate-700"
