@@ -182,7 +182,7 @@ export default function OnboardingDrawer({ userId, negocioId, onCompletado }: Pr
         <div style={{ padding: '20px 24px 0', borderBottom: '1px solid var(--card-border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 18, fontWeight: 700, color: '#15803d' }}>Socio Pro</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: '#15803d' }}>Mi Socio Pro</span>
               <span style={{
                 fontSize: 11,
                 background: '#dcfce7',

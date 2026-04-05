@@ -100,7 +100,7 @@ export default function Config() {
                       {mensajeDueno || (guardandoDueno ? '...' : 'Guardar')}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Así te saluda Socio Pro cada vez que abres la app</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Así te saluda Mi Socio Pro cada vez que abres la app</p>
                 </div>
               </div>
             </div>
@@ -158,7 +158,7 @@ export default function Config() {
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-sm font-medium text-gray-800 dark:text-slate-100">Tutorial de uso</p>
-                  <p className="text-xs text-gray-400 dark:text-slate-400">Aprende a sacarle el máximo provecho a Socio Pro</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-400">Aprende a sacarle el máximo provecho a Mi Socio Pro</p>
                 </div>
                 <svg className="w-4 h-4 text-gray-300 dark:text-slate-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -193,7 +193,7 @@ export default function Config() {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-800 dark:text-slate-100">Términos y condiciones</p>
-                  <p className="text-xs text-gray-400 dark:text-slate-400">Condiciones de uso de Socio Pro</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-400">Condiciones de uso de Mi Socio Pro</p>
                 </div>
                 <svg className="w-4 h-4 text-gray-300 dark:text-slate-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -203,7 +203,7 @@ export default function Config() {
 
             {/* Versión */}
             <div className="text-center mb-4">
-              <p className="text-xs text-gray-300 dark:text-slate-600">Socio Pro v1.0 — Hecho con ❤️ para emprendedores chilenos</p>
+              <p className="text-xs text-gray-300 dark:text-slate-600">Mi Socio Pro v2.0 — Hecho con ❤️ para emprendedores chilenos</p>
             </div>
 
             {/* Cerrar sesión */}

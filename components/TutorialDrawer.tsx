@@ -10,7 +10,7 @@ const PASOS = [
     consejos: [
       'Escribe en orden: acción + concepto + monto. Ejemplo: "vendí completos 5000" o "pagué arriendo 200000"',
       'Usa palabras que identifiquen ingresos: vendí, cobré, recibí, gané. Para egresos: pagué, compré, gasté.',
-      'También puedes usar el micrófono 🎤 — habla natural y Socio Pro entiende.',
+      'También puedes usar el micrófono 🎤 — habla natural y Mi Socio Pro entiende.',
       'Puedes escribir "sueldo 800000" para registrar tu ingreso personal.',
     ],
     ejemplos: [

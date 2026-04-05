@@ -32,7 +32,6 @@ export async function POST(request: Request) {
 
   const { messages } = await request.json()
 
-  // Obtiene todos los datos del negocio
   const { data: negocio } = await admin
     .from('negocios')
     .select('*')
@@ -57,7 +56,6 @@ export async function POST(request: Request) {
     .eq('user_id', user.id)
     .order('nombre', { ascending: true })
 
-  // === Análisis financiero ===
   const ingresos = movimientos?.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0) || 0
   const egresos = movimientos?.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0) || 0
   const balance = ingresos - egresos
@@ -142,7 +140,7 @@ export async function POST(request: Request) {
   const tieneEquipo = (colaboradores?.length || 0) > 0
   const tieneInventario = (productos?.length || 0) > 0
 
-  const systemPrompt = `Eres el Socio Experto de "${nombreNegocio}" en Socio Pro. Eres como un socio de confianza que conoce el negocio por dentro — conoces los números, el inventario, el equipo, y la historia de cada movimiento.
+  const systemPrompt = `Eres el Socio Experto de "${nombreNegocio}" en Mi Socio Pro. Eres como un socio de confianza que conoce el negocio por dentro — conoces los números, el inventario, el equipo, y la historia de cada movimiento.
 
 CONTEXTO DEL NEGOCIO:
 - Nombre: ${nombreNegocio}

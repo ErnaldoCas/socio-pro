@@ -32,12 +32,12 @@ export default function NavBar() {
           <div className="relative flex-shrink-0">
             <img
               src="/logo.png"
-              alt="Socio Pro"
+              alt="Mi Socio Pro"
               className="w-14 h-14 rounded-2xl object-contain shadow-sm border border-gray-100"
             />
           </div>
           <div>
-            <p className="text-lg font-bold text-gray-900 leading-tight tracking-tight">Socio Pro</p>
+            <p className="text-lg font-bold text-gray-900 leading-tight tracking-tight">Mi Socio Pro</p>
             <p className="text-xs text-gray-400 leading-tight">
               {rol === 'colaborador' ? 'Colaborador' : 'Contabilidad & finanzas simples'}
             </p>
