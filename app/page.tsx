@@ -11,6 +11,7 @@ import { useState, useEffect, useRef } from 'react'
 import { parsearMovimiento } from '@/lib/nlpParser'
 import { useRol } from '@/hooks/useRol'
 import { createClient } from '@/lib/supabase'
+import Link from 'next/link'
 
 export default function Home() {
   const [input, setInput] = useState('')
@@ -24,6 +25,7 @@ export default function Home() {
   const [nombreDueno, setNombreDueno] = useState<string | null>(null)
   const [mostrarModal, setMostrarModal] = useState(false)
   const [negocioCargado, setNegocioCargado] = useState(false)
+  const [limitAlcanzado, setLimitAlcanzado] = useState(false)
 
   // Onboarding
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false)
@@ -51,12 +53,10 @@ export default function Home() {
     setNombreDueno(nombre)
     setNegocioCargado(true)
 
-    // Modal de bienvenida si es dueño y no tiene nombre guardado
     if (data.rol === 'dueño' && !nombre) {
       setMostrarModal(true)
     }
 
-    // Onboarding: solo para dueños, solo si no está completado
     if (data.rol === 'dueño' && data.negocio?.id) {
       setNegocioId(data.negocio.id)
 
@@ -71,7 +71,6 @@ export default function Home() {
           .single()
 
         if (negocio && !negocio.onboarding_completado) {
-          // Pequeño delay para que no choque con el WelcomeModal
           setTimeout(() => setMostrarOnboarding(true), 300)
         }
       }
@@ -112,6 +111,7 @@ export default function Home() {
     setLoading(true)
     setMensaje('')
     setMensajeError(false)
+    setLimitAlcanzado(false)
 
     const textoOriginal = input.trim()
     const { concepto, monto, tipo, categoria } = parsearMovimiento(textoOriginal)
@@ -129,7 +129,13 @@ export default function Home() {
       setTipoDetectado('')
       cargarMovimientos()
     } else {
-      setMensaje('Hubo un error al registrar. Intenta de nuevo.')
+      const err = await res.json()
+      if (err.codigo === 'LIMITE_GRATIS') {
+        setLimitAlcanzado(true)
+        setMensaje('Alcanzaste los 50 movimientos de este mes. Pasa a Pro para continuar.')
+      } else {
+        setMensaje('Hubo un error al registrar. Intenta de nuevo.')
+      }
       setMensajeError(true)
     }
     setLoading(false)
@@ -148,7 +154,6 @@ export default function Home() {
 
   return (
     <AuthGuard>
-      {/* Modal de bienvenida si no hay nombre */}
       {mostrarModal && (
         <WelcomeModal
           onGuardar={(nombre) => {
@@ -158,14 +163,12 @@ export default function Home() {
         />
       )}
 
-      {/* Onboarding drawer — solo usuarios nuevos */}
       {mostrarOnboarding && negocioId && userId && (
         <OnboardingDrawer
           userId={userId}
           negocioId={negocioId}
           onCompletado={() => {
             setMostrarOnboarding(false)
-            // Recargar negocio por si se guardó nombre en el onboarding
             cargarNegocio()
             cargarMovimientos()
           }}
@@ -272,10 +275,25 @@ export default function Home() {
               >
                 {loading ? 'Registrando...' : 'Registrar'}
               </button>
-              {mensaje && (
+
+              {/* Mensaje normal o de límite alcanzado */}
+              {mensaje && !limitAlcanzado && (
                 <p className={`text-xs mt-2 text-center ${mensajeError ? 'text-red-500' : 'text-green-600'}`}>
                   {mensaje}
                 </p>
+              )}
+              {limitAlcanzado && (
+                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                  <p className="text-xs text-amber-700 font-medium mb-2">
+                    Alcanzaste los 50 movimientos de este mes
+                  </p>
+                  <Link
+                    href="/precios"
+                    className="inline-block bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-all"
+                  >
+                    Ver plan Pro ⭐
+                  </Link>
+                </div>
               )}
             </div>
           )}
