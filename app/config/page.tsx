@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import TutorialDrawer from '@/components/TutorialDrawer'
+import TutorialDrawer from '/components/TutorialDrawer'
 
 export default function Config() {
   const router = useRouter()
