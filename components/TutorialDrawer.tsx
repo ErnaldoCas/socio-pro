@@ -5,104 +5,123 @@ const PASOS = [
   {
     pantalla: 'Inicio',
     emoji: '🏠',
-    titulo: 'Registrar movimientos',
-    descripcion: 'Aquí registras todo lo que entra y sale de tu negocio o finanzas personales.',
+    titulo: 'Dashboard — Registrar movimientos',
+    descripcion: 'El centro de operaciones. Aquí registras todo lo que entra y sale, y monitoras tu negocio en tiempo real.',
     consejos: [
-      'Escribe en orden: acción + concepto + monto. Ejemplo: "vendí completos 5000" o "pagué arriendo 200000"',
-      'Usa palabras que identifiquen ingresos: vendí, cobré, recibí, gané. Para egresos: pagué, compré, gasté.',
-      'También puedes usar el micrófono 🎤 — habla natural y Socio Pro entiende.',
-      'Puedes escribir "sueldo 800000" para registrar tu ingreso personal.',
+      'Escribe en orden natural: "vendí 3 completos a 2500" o "pagué arriendo 350000". El sistema detecta si es ingreso o egreso automáticamente.',
+      'Usa el micrófono 🎤 para hablar directo. Mi Socio Pro transcribe tu voz y deja el texto listo para registrar sin confirmación.',
+      'Mientras escribes aparece una etiqueta verde (+ Ingreso) o roja (- Egreso) — así sabes que el sistema entendió bien antes de registrar.',
+      'Si tienes productos en inventario, al registrar una venta el stock se descuenta automáticamente. Ej: "vendí 3 completos" baja el stock de Completo en 3.',
+      'El Health Score (0-100) y el gráfico de barras se actualizan al instante con cada movimiento que registras.',
     ],
     ejemplos: [
-      '"vendí café 1500"',
-      '"pagué bencina 45000"',
-      '"cobré comisión 80000"',
-      '"compré insumos 25000"',
-    ]
+      '"vendí 3 completos a 2500"  →  Ingreso $7.500',
+      '"pagué 5 lucas de gas"  →  Egreso $5.000',
+      '"cobré comisión 80000"  →  Ingreso $80.000',
+      '"gasté 2 palos en arriendo"  →  Egreso $2.000.000',
+      '"bencina medio palo"  →  Egreso $500.000',
+    ],
+    tip: 'Chilenismos: lucas = $1.000 · palos = $1.000.000 · k = mil · medio palo = $500.000',
   },
   {
     pantalla: 'Movimientos',
     emoji: '📋',
-    titulo: 'Ver y buscar movimientos',
-    descripcion: 'Historial completo de todo lo que has registrado. Filtra y busca para encontrar lo que necesitas.',
+    titulo: 'Historial, búsqueda y edición',
+    descripcion: 'Historial completo de todos los ingresos y egresos. Busca, filtra y edita cualquier movimiento directamente.',
     consejos: [
-      'Usa el buscador para encontrar movimientos por palabra clave. Ejemplo: "imprevistos", "colación", "hobby".',
-      'Filtra por tipo (ingresos/egresos) para ver solo lo que te interesa.',
-      'Si tienes colaboradores, puedes ver quién registró cada movimiento.',
-      'Puedes editar o eliminar cualquier movimiento si te equivocaste.',
+      'El buscador filtra por concepto o categoría. El término buscado aparece resaltado en amarillo dentro de los resultados.',
+      'Usa los botones Todos / Ingresos / Egresos para filtrar por tipo. Las métricas del encabezado se recalculan según el filtro activo.',
+      'Si tienes equipo (Pro), filtra entre "Todo el equipo", "Solo mis registros" o por colaborador específico. Cada movimiento muestra quién lo registró.',
+      'Toca Editar en cualquier movimiento para modificar concepto, monto, tipo y categoría directamente en la lista.',
+      'Al eliminar aparece una confirmación antes de borrar. Una vez eliminado no se puede recuperar.',
     ],
     ejemplos: [
-      'Busca "taxi" para ver todos tus gastos en transporte',
-      'Busca "sueldo" para ver todos tus ingresos personales',
-      'Filtra por "egresos" para revisar en qué estás gastando',
-    ]
+      'Busca "taxi" → todos los gastos de transporte',
+      'Busca "sueldo" → todos los ingresos de sueldo',
+      'Busca "arriendo" → todos los pagos de arriendo',
+      'Busca "marketing" → filtra la categoría completa',
+    ],
+    tip: 'Las métricas de ingresos, egresos y balance del encabezado se calculan sobre los movimientos filtrados, no el total.',
   },
   {
     pantalla: 'Inventario',
     emoji: '📦',
-    titulo: 'Gestionar productos y stock',
-    descripcion: 'Registra los productos que vendes. Cuando registras una venta, el stock se descuenta automáticamente.',
+    titulo: 'Productos, stock y alertas',
+    descripcion: 'Gestiona tus productos con precio, costo y stock. Se integra automáticamente con el registro de ventas.',
     consejos: [
-      'Agrega cada producto con su precio de venta y costo — así Socio Pro calcula tu margen.',
-      'Define un stock mínimo para recibir alertas cuando te estés quedando sin producto.',
-      'Al registrar "vendí 3 completos 4500" en el inicio, el stock de "completo" baja automáticamente.',
-      'Usa los botones + / - para ajustar el stock manualmente si recibes mercadería.',
+      'Agrega cada producto con nombre, precio de venta y costo. Con ambos el Socio Experto calcula tu margen de ganancia unitario.',
+      'Define un stock mínimo para recibir alertas cuando te estés quedando sin producto — aparece alerta roja en pantalla y notificación push si las tienes activadas.',
+      'Usa el escáner OCR 📷 para tomar una foto a una factura o lista de productos. La IA los extrae y agrega al inventario automáticamente.',
+      'El nombre del producto importa: si lo llamas "Completo", di "vendí completos" al registrar para que el stock descuente correctamente.',
+      'Los botones + y − ajustan el stock manualmente para cuando recibes mercadería o corriges un error.',
     ],
     ejemplos: [
-      'Producto: "Completo" | Precio: $2.500 | Costo: $800 | Stock mínimo: 10',
-      'Producto: "Café" | Precio: $1.500 | Costo: $300 | Stock mínimo: 20',
-    ]
+      'Completo · Precio $2.500 · Costo $800 · Stock mínimo 10',
+      'Café · Precio $1.500 · Costo $300 · Stock mínimo 20',
+      'Empanada · Precio $1.800 · Costo $600 · Stock mínimo 15',
+    ],
+    tip: 'Margen = (Precio - Costo) / Precio × 100. Un completo a $2.500 con costo $800 tiene margen del 68%.',
   },
   {
     pantalla: 'Reportes',
     emoji: '📊',
-    titulo: 'Analizar y exportar',
-    descripcion: 'Ve el resumen financiero de tu negocio, compara meses y exporta tus datos.',
+    titulo: 'Analizar, comparar y exportar',
+    descripcion: 'Cierre de caja, filtros avanzados, comparativa entre meses y exportación de datos.',
     consejos: [
-      'El cierre de caja genera un resumen del día — útil para revisar al cerrar.',
-      'Usa el buscador para filtrar movimientos por palabra clave antes de exportar.',
-      'Compara dos meses para ver si tu negocio está creciendo o retrocediendo.',
-      'Exporta a Excel (plan Pro) o descarga el reporte HTML para compartir con tu contador.',
+      'El contador de uso (plan gratis) muestra cuántos de los 50 movimientos mensuales llevas. Se pone amarillo al 80% y rojo al llegar al límite.',
+      'El cierre de caja genera un resumen del día con todos los movimientos descargable en HTML — ideal para revisar al cerrar o enviar al contador.',
+      'Combina filtros de texto, tipo, categoría, colaborador y fechas. Los filtros aplican también a las exportaciones.',
+      'La comparativa mes a mes muestra diferencias en ingresos, egresos, balance, margen y ticket promedio con indicadores ▲ ▼.',
+      'Los análisis guardados desde el Socio Experto aparecen en el Historial de análisis — puedes expandirlos o eliminarlos.',
     ],
     ejemplos: [
-      'Filtra por "alimentación" + mes actual para ver tus gastos en insumos',
-      'Compara abril vs marzo para saber si mejoraste',
-    ]
+      'Filtra "alimentación" + este mes → cuánto gastaste en insumos',
+      'Compara abril vs marzo → ¿creciste o retrocediste?',
+      'Filtra por colaborador → quién generó más ingresos',
+      'Descarga Excel (Pro) → envía el detalle a tu contador',
+    ],
+    tip: 'El reporte HTML incluye los filtros aplicados, métricas totales y el detalle de cada movimiento. Abre en cualquier navegador.',
   },
   {
     pantalla: 'Socio',
     emoji: '🤝',
     titulo: 'Tu asesor financiero con IA',
-    descripcion: 'El Socio Experto conoce todos tus datos y te da análisis y consejos personalizados.',
+    descripcion: 'El Socio Experto conoce todos tus datos y te da análisis personalizados. El chat es gratis para todos los planes.',
     consejos: [
-      'Cada respuesta tiene 3 partes: análisis técnico (🎓), explicación simple (🤝) y algo que aprender (📚).',
-      'Pregúntale cosas concretas: "¿en qué estoy perdiendo plata?", "¿cuál es mi producto más rentable?"',
-      'Guarda los análisis que te parezcan útiles — aparecen en Reportes para revisarlos después.',
-      'El análisis profundo (plan Pro) te da un diagnóstico completo con alertas y una acción para hoy.',
+      'Cada respuesta tiene 3 bloques: 🎓 EXPERTO (análisis técnico con tus datos reales), 🤝 SOCIO (lo mismo en lenguaje simple) y 📚 APRENDE HOY (términos explicados).',
+      'Usa las preguntas sugeridas de la pantalla o escribe lo que necesites. Sé específico: "¿en qué categoría gasto más?" es mejor que "¿cómo estoy?".',
+      'El Socio solo responde temas del negocio — finanzas, inventario, equipo y uso de la app. Para otras cosas te redirigirá al negocio.',
+      'Guarda cualquier respuesta con el botón "💾 Guardar análisis". Quedará en Reportes → Historial para consultarlo después.',
+      'El Análisis Profundo (Pro) hace un diagnóstico completo automático con un clic — sin necesidad de escribir ninguna pregunta.',
     ],
     ejemplos: [
-      '"¿Cómo estuvo esta semana?"',
-      '"¿Cuánto debería cobrar por mis productos?"',
+      '"¿En qué estoy perdiendo plata?"',
+      '"¿Cuál es mi producto más rentable?"',
       '"¿Qué debería mejorar urgente?"',
-      '"¿En qué estoy gastando demasiado?"',
-    ]
+      '"¿Quién de mi equipo vende más?"',
+      '"¿Estoy en números rojos o verdes?"',
+    ],
+    tip: 'Mientras más movimientos e inventario tengas registrado, más preciso y útil será el análisis del Socio.',
   },
   {
     pantalla: 'Usos creativos',
     emoji: '💡',
-    titulo: 'Ideas de uso más allá del negocio',
-    descripcion: 'Socio Pro se adapta a distintas necesidades. Úsalo como más te sirva.',
+    titulo: 'Más allá del negocio tradicional',
+    descripcion: 'Mi Socio Pro se adapta a cualquier contexto. Aquí algunos usos que descubrieron nuestros usuarios.',
     consejos: [
-      'Finanzas personales: registra tu sueldo como ingreso y tus gastos del hogar como egresos.',
-      'Control de comisiones: si vendes con colaboradores, cada uno registra sus ventas y tú ves el total.',
-      'Presupuesto mensual: registra tus metas de ahorro como "meta ahorro 100000" y controla tus gastos.',
-      'Gastos compartidos: usa colaboradores para llevar cuentas de gastos en grupo.',
+      'Finanzas personales: registra tu sueldo como ingreso y tus gastos del hogar como egresos. El Socio analiza tu situación personal igual que un negocio.',
+      'Taxista o delivery: registra ingresos por turno y gastos de bencina, mantención y peajes. El Socio te dice cuánto ganas real por jornada.',
+      'Vendedor por catálogo: registra comisiones como ingresos y pagos a la empresa como egresos. Controla tu utilidad neta real.',
+      'Control de ahorro: registra metas de ahorro como egresos ("meta ahorro 100000"). El Socio controla que no te las gastes.',
+      'Negocio con equipo (Pro): cada colaborador registra sus ventas, tú ves el consolidado y el rendimiento individual de cada uno.',
     ],
     ejemplos: [
       '"sueldo 800000" → ingreso personal mensual',
       '"supermercado 85000" → gasto del hogar',
-      '"ahorro meta 50000" → control de ahorro',
-    ]
+      '"turno mañana 45000" + "bencina 35000" → utilidad real del día',
+      '"comisión pedido 45000" + "pago catálogo 120000" → ganancia neta catálogo',
+    ],
+    tip: 'El Socio detecta el contexto por tus datos. "Sueldo" y "supermercado" = finanzas personales. "Completos" y "vienesas" = cocinería.',
   },
 ]
 
@@ -178,25 +197,25 @@ export default function TutorialDrawer({ onCerrar }: Props) {
         </div>
 
         {/* Contenido */}
-        <div style={{ flex: 1, padding: '28px 24px', overflowY: 'auto' }}>
+        <div style={{ flex: 1, padding: '24px 24px', overflowY: 'auto' }}>
 
-          {/* Pantalla + emoji */}
+          {/* Cabecera del paso */}
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 44, marginBottom: 10 }}>{paso_actual.emoji}</div>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>{paso_actual.emoji}</div>
             <div style={{ fontSize: 11, color: 'var(--muted-light)', marginBottom: 4, fontWeight: 500 }}>
-              PANTALLA: {paso_actual.pantalla.toUpperCase()} · {paso + 1}/{PASOS.length}
+              {paso_actual.pantalla.toUpperCase()} · {paso + 1}/{PASOS.length}
             </div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--foreground)', margin: '0 0 8px' }}>
+            <h2 style={{ fontSize: 19, fontWeight: 700, color: 'var(--foreground)', margin: '0 0 8px' }}>
               {paso_actual.titulo}
             </h2>
-            <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
               {paso_actual.descripcion}
             </p>
           </div>
 
           {/* Consejos */}
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+          <div style={{ marginBottom: 18 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
               Cómo usarlo
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -216,8 +235,8 @@ export default function TutorialDrawer({ onCerrar }: Props) {
           </div>
 
           {/* Ejemplos */}
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
               Ejemplos
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -232,6 +251,22 @@ export default function TutorialDrawer({ onCerrar }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Tip */}
+          {paso_actual.tip && (
+            <div style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: 10,
+              padding: '10px 14px',
+              display: 'flex',
+              gap: 8,
+              alignItems: 'flex-start',
+            }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>💡</span>
+              <p style={{ fontSize: 12, color: '#1e40af', margin: 0, lineHeight: 1.5 }}>{paso_actual.tip}</p>
+            </div>
+          )}
         </div>
 
         {/* Footer navegación */}
