@@ -10,8 +10,14 @@ import OnboardingDrawer from '@/components/OnboardingDrawer'
 import { useState, useEffect, useRef } from 'react'
 import { parsearMovimiento } from '@/lib/nlpParser'
 import { useRol } from '@/hooks/useRol'
+import { usePlan } from '@/hooks/usePlan'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+
+interface Insight {
+  tipo: 'positivo' | 'alerta' | 'neutro'
+  texto: string
+}
 
 export default function Home() {
   const [input, setInput] = useState('')
@@ -26,6 +32,8 @@ export default function Home() {
   const [mostrarModal, setMostrarModal] = useState(false)
   const [negocioCargado, setNegocioCargado] = useState(false)
   const [limitAlcanzado, setLimitAlcanzado] = useState(false)
+  const [insights, setInsights] = useState<Insight[]>([])
+  const [insightsCargando, setInsightsCargando] = useState(true)
 
   // Onboarding
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false)
@@ -34,17 +42,30 @@ export default function Home() {
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const { rol, permisos } = useRol()
+  const { esPro } = usePlan()
   const esDueno = rol === 'dueño'
   const puedeRegistrar = !rol || esDueno || permisos?.registrar_movimientos === true
 
   useEffect(() => {
     cargarMovimientos()
     cargarNegocio()
+    cargarInsights()
   }, [])
 
   useEffect(() => {
     if (esDueno) cargarColaboradores()
   }, [esDueno])
+
+  async function cargarInsights() {
+    try {
+      const res = await fetch('/api/resumen-diario')
+      const data = await res.json()
+      setInsights(data.insights || [])
+    } catch {
+      setInsights([])
+    }
+    setInsightsCargando(false)
+  }
 
   async function cargarNegocio() {
     const res = await fetch('/api/negocio')
@@ -53,23 +74,17 @@ export default function Home() {
     setNombreDueno(nombre)
     setNegocioCargado(true)
 
-    if (data.rol === 'dueño' && !nombre) {
-      setMostrarModal(true)
-    }
+    if (data.rol === 'dueño' && !nombre) setMostrarModal(true)
 
     if (data.rol === 'dueño' && data.negocio?.id) {
       setNegocioId(data.negocio.id)
-
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUserId(user.id)
         const { data: negocio } = await supabase
-          .from('negocios')
-          .select('onboarding_completado')
-          .eq('id', data.negocio.id)
-          .single()
-
+          .from('negocios').select('onboarding_completado')
+          .eq('id', data.negocio.id).single()
         if (negocio && !negocio.onboarding_completado) {
           setTimeout(() => setMostrarOnboarding(true), 300)
         }
@@ -123,7 +138,7 @@ export default function Home() {
     })
 
     if (res.ok) {
-      setMensaje(`${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} de $${monto.toLocaleString()} registrado en ${categoria}`)
+      setMensaje(`${tipo === 'ingreso' ? '✅ Ingreso' : '📤 Egreso'} de $${monto.toLocaleString()} guardado`)
       setMensajeError(false)
       setInput('')
       setTipoDetectado('')
@@ -132,9 +147,9 @@ export default function Home() {
       const err = await res.json()
       if (err.codigo === 'LIMITE_GRATIS') {
         setLimitAlcanzado(true)
-        setMensaje('Alcanzaste los 50 movimientos de este mes. Pasa a Pro para continuar.')
+        setMensaje('Alcanzaste los 30 movimientos de este mes. Pasa a Pro para continuar.')
       } else {
-        setMensaje('Hubo un error al registrar. Intenta de nuevo.')
+        setMensaje('Algo salió mal. Intenta de nuevo.')
       }
       setMensajeError(true)
     }
@@ -148,6 +163,12 @@ export default function Home() {
     return 'Buenas noches'
   }
 
+  function getInsightStyle(tipo: string) {
+    if (tipo === 'positivo') return { bg: 'bg-green-50', border: 'border-green-200', texto: 'text-green-800', icono: '👍' }
+    if (tipo === 'alerta') return { bg: 'bg-amber-50', border: 'border-amber-200', texto: 'text-amber-800', icono: '⚠️' }
+    return { bg: 'bg-blue-50', border: 'border-blue-200', texto: 'text-blue-800', icono: '💡' }
+  }
+
   const ingresos = movimientos.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.monto, 0)
   const egresos = movimientos.filter(m => m.tipo === 'egreso').reduce((sum, m) => sum + m.monto, 0)
   const balance = ingresos - egresos
@@ -155,12 +176,7 @@ export default function Home() {
   return (
     <AuthGuard>
       {mostrarModal && (
-        <WelcomeModal
-          onGuardar={(nombre) => {
-            setNombreDueno(nombre)
-            setMostrarModal(false)
-          }}
-        />
+        <WelcomeModal onGuardar={(nombre) => { setNombreDueno(nombre); setMostrarModal(false) }} />
       )}
 
       {mostrarOnboarding && negocioId && userId && (
@@ -178,7 +194,7 @@ export default function Home() {
       <main className="min-h-screen bg-gray-100 p-4 pt-16 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          {/* Saludo personalizado */}
+          {/* Saludo */}
           {negocioCargado && nombreDueno && (
             <div className="mb-4 mt-2">
               <p className="text-lg font-semibold text-gray-800">
@@ -188,16 +204,60 @@ export default function Home() {
             </div>
           )}
 
+          {/* ✅ RESUMEN INTELIGENTE DEL DÍA */}
+          <div className="bg-white rounded-xl border border-gray-100 mb-4 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🤖</span>
+                <p className="text-sm font-semibold text-gray-800">Resumen inteligente del día</p>
+              </div>
+              <Link href="/socio" className="text-xs text-green-600 font-medium hover:underline">
+                Ver análisis completo →
+              </Link>
+            </div>
+
+            {insightsCargando ? (
+              <div className="p-4 flex gap-2 items-center">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <p className="text-xs text-gray-400 ml-1">Analizando tu negocio...</p>
+              </div>
+            ) : insights.length === 0 ? (
+              <div className="p-4">
+                <p className="text-sm text-gray-400">Registra tus primeros movimientos para ver el análisis 🚀</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {insights.map((insight, i) => {
+                  const style = getInsightStyle(insight.tipo)
+                  return (
+                    <div key={i} className={`px-4 py-3 flex items-start gap-3 ${i === 0 ? '' : ''}`}>
+                      <span className="text-base flex-shrink-0 mt-0.5">{style.icono}</span>
+                      <p className="text-sm text-gray-700 leading-snug">{insight.texto}</p>
+                    </div>
+                  )
+                })}
+                {!esPro && (
+                  <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
+                    <p className="text-xs text-gray-400">Tu Socio IA detectó más cosas 🔒</p>
+                    <Link href="/precios" className="text-xs bg-green-600 text-white px-3 py-1 rounded-full hover:bg-green-700 transition-all">
+                      Ver Pro ⭐
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Filtro por colaborador */}
           {esDueno && colaboradores.length > 0 && (
-            <div className="mb-4 mt-2">
+            <div className="mb-4">
               <div className="flex gap-2 overflow-x-auto pb-1">
                 <button
                   onClick={() => setFiltroColaborador('todos')}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
-                    filtroColaborador === 'todos'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-white text-gray-500 border border-gray-200'
+                    filtroColaborador === 'todos' ? 'bg-green-600 text-white' : 'bg-white text-gray-500 border border-gray-200'
                   }`}
                 >
                   Todo el negocio
@@ -207,35 +267,28 @@ export default function Home() {
                     key={c.id}
                     onClick={() => setFiltroColaborador(c.id)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
-                      filtroColaborador === c.id
-                        ? 'bg-green-600 text-white'
-                        : 'bg-white text-gray-500 border border-gray-200'
+                      filtroColaborador === c.id ? 'bg-green-600 text-white' : 'bg-white text-gray-500 border border-gray-200'
                     }`}
                   >
                     {c.nombre || c.email}
                   </button>
                 ))}
               </div>
-              {filtroColaborador !== 'todos' && (
-                <p className="text-xs text-gray-400 mt-1.5 ml-1">
-                  Viendo movimientos de {colaboradores.find(c => c.id === filtroColaborador)?.nombre || 'colaborador'}
-                </p>
-              )}
             </div>
           )}
 
-          {/* Métricas */}
-          <div className="grid grid-cols-3 gap-3 mb-4 mt-2">
+          {/* Métricas con mensajes humanos */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="bg-white rounded-xl p-4 border border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">Ingresos</p>
+              <p className="text-xs text-gray-400 mb-1">Entraron</p>
               <p className="text-base font-semibold text-green-600">${ingresos.toLocaleString()}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">Egresos</p>
+              <p className="text-xs text-gray-400 mb-1">Salieron</p>
               <p className="text-base font-semibold text-red-500">${egresos.toLocaleString()}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100">
-              <p className="text-xs text-gray-400 mb-1">Balance</p>
+              <p className="text-xs text-gray-400 mb-1">{balance >= 0 ? 'Vas ganando 👍' : 'Ojo, pérdida ⚠️'}</p>
               <p className={`text-base font-semibold ${balance >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
                 ${balance.toLocaleString()}
               </p>
@@ -246,14 +299,12 @@ export default function Home() {
           {puedeRegistrar && (
             <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
               <div className="flex justify-between items-center mb-3">
-                <p className="text-sm font-medium text-gray-700">Registrar movimiento</p>
+                <p className="text-sm font-medium text-gray-700">¿Qué pasó hoy?</p>
                 {tipoDetectado && (
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                    tipoDetectado === 'ingreso'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-600'
+                    tipoDetectado === 'ingreso' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
                   }`}>
-                    {tipoDetectado === 'ingreso' ? '+ Ingreso' : '- Egreso'}
+                    {tipoDetectado === 'ingreso' ? '+ Entró plata' : '- Salió plata'}
                   </span>
                 )}
               </div>
@@ -263,7 +314,7 @@ export default function Home() {
                   value={input}
                   onChange={e => handleInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && registrar()}
-                  placeholder='Ej: "vendí completos 5000"'
+                  placeholder='Ej: "vendí completos 5000" o "pagué bencina 30000"'
                   className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
                 />
                 <VoiceInput onResult={handleInput} />
@@ -273,10 +324,9 @@ export default function Home() {
                 disabled={loading}
                 className="w-full bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 active:scale-95 transition-all disabled:opacity-50"
               >
-                {loading ? 'Registrando...' : 'Registrar'}
+                {loading ? 'Guardando...' : 'Registrar'}
               </button>
 
-              {/* Mensaje normal o de límite alcanzado */}
               {mensaje && !limitAlcanzado && (
                 <p className={`text-xs mt-2 text-center ${mensajeError ? 'text-red-500' : 'text-green-600'}`}>
                   {mensaje}
@@ -285,7 +335,10 @@ export default function Home() {
               {limitAlcanzado && (
                 <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
                   <p className="text-xs text-amber-700 font-medium mb-2">
-                    Alcanzaste los 50 movimientos de este mes
+                    Llegaste al límite de 30 movimientos este mes 🔒
+                  </p>
+                  <p className="text-xs text-amber-600 mb-2">
+                    Pasa a Pro y registra sin límites
                   </p>
                   <Link
                     href="/precios"
@@ -307,13 +360,14 @@ export default function Home() {
           {/* Últimos movimientos */}
           <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
             <div className="flex justify-between items-center mb-3">
-              <p className="text-sm font-medium text-gray-700">Últimos movimientos</p>
+              <p className="text-sm font-medium text-gray-700">Lo último registrado</p>
               <span className="text-xs text-gray-400">{movimientos.length} registros</span>
             </div>
             {movimientos.length === 0 ? (
-              <p className="text-gray-400 text-sm text-center py-6">
-                Aún no hay movimientos
-              </p>
+              <div className="text-center py-6">
+                <p className="text-gray-400 text-sm">Aún no hay nada registrado</p>
+                <p className="text-gray-300 text-xs mt-1">Escribe arriba lo que pasó hoy 👆</p>
+              </div>
             ) : (
               <div className="space-y-1">
                 {movimientos.slice(0, 5).map(m => (
@@ -321,9 +375,7 @@ export default function Home() {
                     <div className="flex-1 min-w-0 mr-3">
                       <p className="text-sm text-gray-700 truncate">{m.concepto}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        {m.categoria && (
-                          <span className="text-xs text-gray-400">{m.categoria}</span>
-                        )}
+                        {m.categoria && <span className="text-xs text-gray-400">{m.categoria}</span>}
                         <span className="text-xs text-gray-300">
                           {new Date(m.created_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                         </span>

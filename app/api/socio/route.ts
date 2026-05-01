@@ -33,26 +33,53 @@ export async function POST(request: Request) {
   const { messages } = await request.json()
 
   const { data: negocio } = await admin
-    .from('negocios')
-    .select('*')
-    .eq('owner_id', user.id)
-    .maybeSingle()
+    .from('negocios').select('*').eq('owner_id', user.id).maybeSingle()
+
+  const negocioId = negocio?.id
+  const plan = negocio?.plan || 'gratis'
+  const esPro = plan === 'pro' || plan === 'beta'
+
+  // ✅ Límite 2 consultas diarias para plan gratis
+  if (!esPro && negocioId) {
+    const hoy = new Date().toISOString().split('T')[0]
+
+    const { data: consulta } = await admin
+      .from('consultas_socio')
+      .select('cantidad')
+      .eq('negocio_id', negocioId)
+      .eq('fecha', hoy)
+      .maybeSingle()
+
+    const cantidadHoy = consulta?.cantidad || 0
+
+    if (cantidadHoy >= 2) {
+      return Response.json({
+        error: 'Límite diario alcanzado',
+        codigo: 'LIMITE_CONSULTAS',
+        mensaje: 'Tu Socio IA tiene más recomendaciones para ti 🔒 Activa Pro para consultas ilimitadas.'
+      }, { status: 403 })
+    }
+
+    // Incrementar contador
+    await admin.from('consultas_socio').upsert({
+      negocio_id: negocioId,
+      fecha: hoy,
+      cantidad: cantidadHoy + 1
+    }, { onConflict: 'negocio_id,fecha' })
+  }
 
   const { data: colaboradores } = await admin
-    .from('colaboradores')
-    .select('id, nombre, email, permisos, estado')
+    .from('colaboradores').select('id, nombre, email, permisos, estado')
     .eq('negocio_id', negocio?.id || '')
 
   const { data: movimientos } = await admin
-    .from('movimientos')
-    .select('*')
+    .from('movimientos').select('*')
     .eq('negocio_id', negocio?.id || '')
     .order('created_at', { ascending: false })
     .limit(200)
 
   const { data: productos } = await admin
-    .from('productos')
-    .select('*')
+    .from('productos').select('*')
     .eq('user_id', user.id)
     .order('nombre', { ascending: true })
 
@@ -66,14 +93,12 @@ export async function POST(request: Request) {
   const ingresosHoy = movHoy.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
   const egresosHoy = movHoy.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
 
-  const hace7dias = new Date()
-  hace7dias.setDate(hace7dias.getDate() - 7)
+  const hace7dias = new Date(); hace7dias.setDate(hace7dias.getDate() - 7)
   const mov7dias = movimientos?.filter(m => new Date(m.created_at) >= hace7dias) || []
   const ingresos7dias = mov7dias.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
   const egresos7dias = mov7dias.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
 
-  const hace30dias = new Date()
-  hace30dias.setDate(hace30dias.getDate() - 30)
+  const hace30dias = new Date(); hace30dias.setDate(hace30dias.getDate() - 30)
   const mov30dias = movimientos?.filter(m => new Date(m.created_at) >= hace30dias) || []
   const ingresos30dias = mov30dias.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
   const egresos30dias = mov30dias.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
@@ -116,10 +141,7 @@ export async function POST(request: Request) {
   const gananciaPotencial = valorVentaInventario - valorInventario
 
   const productosConMargen = productos?.map(p => ({
-    nombre: p.nombre,
-    stock: p.stock,
-    precio: p.precio,
-    costo: p.costo,
+    nombre: p.nombre, stock: p.stock, precio: p.precio, costo: p.costo,
     margen: p.precio > 0 ? Math.round(((p.precio - p.costo) / p.precio) * 100) : 0,
     gananciaUnitaria: p.precio - p.costo
   })).sort((a, b) => b.margen - a.margen) || []
@@ -140,7 +162,7 @@ export async function POST(request: Request) {
   const tieneEquipo = (colaboradores?.length || 0) > 0
   const tieneInventario = (productos?.length || 0) > 0
 
-  const systemPrompt = `Eres el Socio Experto de "${nombreNegocio}" en Mi Socio Pro. Eres como un socio de confianza que conoce el negocio por dentro — conoces los números, el inventario, el equipo, y la historia de cada movimiento.
+  const systemPrompt = `Eres el Socio IA de "${nombreNegocio}" en Mi Socio Pro. Eres como un socio de confianza que conoce el negocio por dentro — conoces los números, el inventario, el equipo, y la historia de cada movimiento.
 
 CONTEXTO DEL NEGOCIO:
 - Nombre: ${nombreNegocio}
@@ -196,35 +218,25 @@ TONO Y ESTILO:
 
 FOCO ESTRICTO:
 - SOLO respondes preguntas relacionadas con el negocio, las finanzas, el inventario, el equipo, las ventas, los costos, o el uso de la app
-- Si alguien pregunta algo que NO es del negocio (chistes, recetas, política, etc.), responde amablemente: "Eso está fuera de mi área — yo me especializo en ayudarte con ${nombreNegocio}. ¿Qué quieres mejorar en tu negocio?"
-- Si no hay datos suficientes para responder, dilo y pide que registren más movimientos
+- Si alguien pregunta algo que NO es del negocio, responde: "Eso está fuera de mi área — yo me especializo en ayudarte con ${nombreNegocio}. ¿Qué quieres mejorar en tu negocio?"
 
-RECOMENDACIONES DIFÍCILES (hazlas cuando los datos lo justifiquen):
-- Equipo: "Tu colaborador X registra 3x más ingresos que Y con el mismo tiempo — podría valer la pena revisar los turnos o responsabilidades"
-- Inventario muerto: "Llevas semanas sin vender X y tienes ${10} unidades — considera liquidarlo con descuento antes de que se venza o quede obsoleto"
-- Precios bajos: "El margen de X es solo 8% — con ese precio casi no ganas. Un alza de $500 podría mejorar bastante sin espantar clientes"
-- Gastos altos: "Este mes el 85% de lo que entró se fue en gastos — si las ventas bajan un poco, entras en pérdida"
-- Productos estrella: "X tiene 70% de margen y se vende bien — es tu producto más valioso, prioriza tenerlo siempre con stock"
-- Sin registros: "Llevan 5 días sin registrar movimientos — ¿el negocio cerró o hay ventas que no se están anotando?"
-
-FORMATO OBLIGATORIO — siempre los 3 bloques, sin excepción:
+FORMATO OBLIGATORIO — siempre los 3 bloques:
 
 🎓 EXPERTO
-[Análisis técnico con datos reales de ${nombreNegocio}. Cruza inventario con ventas. Compara el equipo. Detecta tendencias. Usa términos financieros reales.]
+[Análisis técnico con datos reales de ${nombreNegocio}.]
 
 🤝 SOCIO
-[Mismo análisis en lenguaje simple y cercano. Menciona el negocio por nombre cuando sea natural. Si hay algo incómodo pero importante, dilo con respeto. Termina con UNA acción concreta para HOY — específica y medible.]
+[Mismo análisis en lenguaje simple. Termina con UNA acción concreta para HOY.]
 
 📚 APRENDE HOY
-[1-2 términos técnicos del bloque EXPERTO, explicados en 1 oración simple.]
+[1-2 términos técnicos explicados en 1 oración simple.]
 
 REGLAS CRÍTICAS:
-1. NUNCA respondas de forma genérica — usa siempre datos reales de ${nombreNegocio}
-2. Si hay alertas, mencionarlas siempre aunque no pregunten
-3. Solo temas del negocio — nada más
+1. NUNCA respondas de forma genérica — usa siempre datos reales
+2. Si hay alertas, mencionarlas siempre
+3. Solo temas del negocio
 4. Nunca digas que no tienes acceso a los datos
-5. Nunca omitas los 3 bloques
-6. Sé directo — si algo está mal en el negocio, dilo`
+5. Nunca omitas los 3 bloques`
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',

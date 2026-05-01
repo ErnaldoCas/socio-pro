@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 
 function formatearRespuesta(content: string) {
   const tieneFormato = content.includes('🎓') || content.includes('🤝') || content.includes('📚')
@@ -80,13 +81,13 @@ interface Message {
 
 export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: '¡Hola! Soy tu Socio Experto. Cada respuesta tiene 3 partes: análisis profesional, explicación simple y un término para aprender. ¡Pregúntame lo que quieras!' }
+    { role: 'assistant', content: '¡Hola! Soy tu Socio IA. Cada respuesta tiene 3 partes: análisis profesional, explicación simple y algo nuevo que aprender. ¡Pregúntame lo que quieras sobre tu negocio!' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  // guardando: índice del mensaje que se está guardando, guardado: índices ya guardados
   const [guardando, setGuardando] = useState<number | null>(null)
   const [guardados, setGuardados] = useState<Set<number>>(new Set())
+  const [limiteAlcanzado, setLimiteAlcanzado] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -99,7 +100,8 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
 
   async function enviar(texto?: string) {
     const msg = texto || input
-    if (!msg.trim() || loading) return
+    if (!msg.trim() || loading || limiteAlcanzado) return
+
     const userMsg = { role: 'user', content: msg }
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
@@ -112,6 +114,18 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages })
       })
+
+      if (res.status === 403) {
+        const err = await res.json()
+        if (err.codigo === 'LIMITE_CONSULTAS') {
+          setLimiteAlcanzado(true)
+          // Quitar el mensaje del usuario que acabamos de agregar
+          setMessages(prev => prev.slice(0, -1))
+          setLoading(false)
+          return
+        }
+      }
+
       const data = await res.json()
       setMessages([...newMessages, { role: 'assistant', content: data.reply }])
     } catch {
@@ -121,7 +135,6 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
   }
 
   async function guardarAnalisis(idx: number) {
-    // Buscar la pregunta del usuario justo antes de esta respuesta
     const respuesta = messages[idx].content
     const pregunta = messages[idx - 1]?.content || 'Análisis general'
 
@@ -132,9 +145,7 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pregunta, respuesta })
       })
-      if (res.ok) {
-        setGuardados(prev => new Set([...prev, idx]))
-      }
+      if (res.ok) setGuardados(prev => new Set([...prev, idx]))
     } catch {
       // silencioso
     }
@@ -143,10 +154,33 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 mt-4">
-      <div className="p-4 border-b border-gray-50">
-        <p className="text-sm font-medium text-gray-700">Socio Experto</p>
-        <p className="text-xs text-gray-400">Análisis profesional + explicación simple + aprende algo nuevo</p>
+      <div className="p-4 border-b border-gray-50 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-700">Socio IA 🤖</p>
+          <p className="text-xs text-gray-400">Análisis profesional · explicación simple · aprende algo nuevo</p>
+        </div>
+        {limiteAlcanzado && (
+          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">
+            2/2 hoy
+          </span>
+        )}
       </div>
+
+      {/* Banner límite alcanzado */}
+      {limiteAlcanzado && (
+        <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-amber-800">Tu Socio IA tiene más recomendaciones para ti 🔒</p>
+            <p className="text-xs text-amber-600 mt-0.5">Alcanzaste las 2 consultas diarias del plan gratis</p>
+          </div>
+          <Link
+            href="/precios"
+            className="flex-shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
+          >
+            Ver Pro ⭐
+          </Link>
+        </div>
+      )}
 
       <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
         {messages.map((m, i) => (
@@ -158,7 +192,6 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
             ) : (
               <div className="w-full">
                 {formatearRespuesta(m.content)}
-                {/* Botón guardar — solo en respuestas del asistente que no sean el saludo inicial */}
                 {i > 0 && (
                   <div className="mt-2 flex justify-end">
                     {guardados.has(i) ? (
@@ -192,23 +225,38 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t border-gray-50 flex gap-2">
-        <input
-          id={inputId}
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && enviar()}
-          placeholder="¿En qué estoy perdiendo plata?"
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
-        />
-        <button
-          onClick={() => enviar()}
-          disabled={loading}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-        >
-          Enviar
-        </button>
+      {/* Input — bloqueado si límite alcanzado */}
+      <div className="p-4 border-t border-gray-50">
+        {limiteAlcanzado ? (
+          <div className="text-center py-2">
+            <p className="text-xs text-gray-400 mb-2">Vuelve mañana o activa Pro para consultas ilimitadas</p>
+            <Link
+              href="/precios"
+              className="inline-block bg-green-600 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-all"
+            >
+              Activar plan Pro ⭐
+            </Link>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              id={inputId}
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && enviar()}
+              placeholder="¿En qué estoy perdiendo plata?"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400 text-gray-800 placeholder-gray-400 bg-white"
+            />
+            <button
+              onClick={() => enviar()}
+              disabled={loading}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+            >
+              Enviar
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -74,7 +74,6 @@ async function descontarStock(textoOriginal: string, tipo: string, duenoUserId: 
   }
 }
 
-// ✅ Obtiene siempre el owner_id del negocio, sea dueño o colaborador
 async function getDuenoUserId(userId: string, negocioId: string): Promise<string> {
   const admin = getAdmin()
   const { data: negocio } = await admin
@@ -135,6 +134,29 @@ export async function POST(request: Request) {
   const negocioId = negocio?.id || colaborador?.negocio_id || null
   if (!negocioId) return Response.json({ error: 'No se encontró negocio asociado' }, { status: 400 })
 
+  // ✅ Verificar límite de 50 movimientos para plan gratis
+  const { data: planData } = await admin
+    .from('negocios').select('plan').eq('id', negocioId).single()
+
+  if (planData?.plan === 'gratis') {
+    const inicioMes = new Date()
+    inicioMes.setDate(1)
+    inicioMes.setHours(0, 0, 0, 0)
+
+    const { count } = await admin
+      .from('movimientos')
+      .select('*', { count: 'exact', head: true })
+      .eq('negocio_id', negocioId)
+      .gte('created_at', inicioMes.toISOString())
+
+    if ((count || 0) >= 30) {
+      return Response.json({
+        error: 'Límite del plan gratis alcanzado (30 movimientos/mes)',
+        codigo: 'LIMITE_GRATIS'
+      }, { status: 403 })
+    }
+  }
+
   const { data, error } = await admin
     .from('movimientos')
     .insert([{
@@ -150,7 +172,6 @@ export async function POST(request: Request) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  // ✅ Siempre obtiene el owner_id real del negocio, funciona para dueño y colaborador
   const textoParaMatch = body.textoOriginal || body.concepto || ''
   const duenoUserId = await getDuenoUserId(user.id, negocioId)
   await descontarStock(textoParaMatch, body.tipo, duenoUserId)
