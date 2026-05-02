@@ -129,7 +129,7 @@ export default function Config() {
                       {mensajeNegocio || (guardandoNegocio ? '...' : 'Guardar')}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Tu Socio Experto usará este nombre al analizar tus datos</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Tu Socio IA usará este nombre al analizar tus datos</p>
                 </div>
               </div>
             </div>
@@ -147,6 +147,8 @@ export default function Config() {
 
             {/* Opciones */}
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 mb-4">
+
+              {/* Tutorial */}
               <button
                 onClick={() => setMostrarTutorial(true)}
                 className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all border-b border-gray-50 dark:border-slate-700"
@@ -164,6 +166,8 @@ export default function Config() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+
+              {/* Mi equipo */}
               <Link
                 href="/equipo"
                 className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all border-b border-gray-50 dark:border-slate-700"
@@ -181,10 +185,12 @@ export default function Config() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
+
+              {/* Términos y condiciones */}
               <Link
                 href="/terminos"
                 target="_blank"
-                className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all"
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all border-b border-gray-50 dark:border-slate-700"
               >
                 <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
                   <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -199,6 +205,27 @@ export default function Config() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
+
+              {/* Política de privacidad */}
+              <Link
+                href="/privacidad"
+                target="_blank"
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all"
+              >
+                <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-slate-100">Política de privacidad</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-400">Cómo manejamos tus datos</p>
+                </div>
+                <svg className="w-4 h-4 text-gray-300 dark:text-slate-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+
             </div>
 
             {/* Versión */}
