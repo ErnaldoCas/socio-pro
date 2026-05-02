@@ -21,12 +21,11 @@ export default function Socio() {
 
   return (
     <AuthGuard>
-      {/* Fondo degradado verde sutil */}
       <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #f0fdf4 0%, #f9fafb 40%)' }}>
         <main className="p-4 pt-16 pb-24">
           <div className="max-w-2xl mx-auto">
 
-            {/* Header con gradiente */}
+            {/* Header */}
             <div className="mb-5 pt-2">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 bg-green-600 rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0">
@@ -47,17 +46,19 @@ export default function Socio() {
               </div>
             </div>
 
-            {/* ✅ 1. MICRÓFONO — primero y destacado */}
+            {/* ✅ MICRÓFONO + BARRA DE TEXTO — juntos en un solo bloque */}
             <div className="bg-white rounded-2xl border border-green-100 shadow-sm p-4 mb-4">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm font-medium text-gray-700">🎤 Habla con tu Socio IA</span>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-gray-700">🎤 Habla o escribe</span>
                 {!esPro && (
-                  <span className="ml-auto text-xs text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">
+                  <span className="text-xs text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">
                     2 consultas/día
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-4">
+
+              {/* Micrófono */}
+              <div className="flex items-center gap-3 mb-3">
                 <VoiceInput onResult={handleVoz} />
                 <div className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 min-h-[40px] flex items-center">
                   {textoVoz ? (
@@ -67,12 +68,29 @@ export default function Socio() {
                   )}
                 </div>
               </div>
+
+              {/* Barra de texto — justo debajo del micrófono */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={sugerencia}
+                  onChange={e => setSugerencia(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && sugerencia.trim()) {
+                      setSugerencia(sugerencia)
+                    }
+                  }}
+                  placeholder='Ej: "¿en qué estoy perdiendo plata?"'
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-green-400 focus:ring-2 focus:ring-green-50 text-gray-800 placeholder-gray-400 bg-white transition-all"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-2">Escribe o usa el micrófono — ambos envían al chat de abajo</p>
             </div>
 
-            {/* ✅ 2. PREGUNTAS SUGERIDAS */}
+            {/* Preguntas sugeridas */}
             <div className="mb-4">
-              <p className="text-xs font-medium text-gray-500 mb-2 px-1">💬 O elige una pregunta rápida</p>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <p className="text-xs font-medium text-gray-500 mb-2 px-1">💬 Preguntas rápidas</p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
                 {[
                   '¿En qué estoy perdiendo plata?',
                   '¿Mi producto más rentable?',
@@ -91,10 +109,10 @@ export default function Socio() {
               </div>
             </div>
 
-            {/* ✅ 3. CHAT — centro de la experiencia */}
+            {/* Chat */}
             <SocioChat inputId="socio-input" suggestion={sugerencia} />
 
-            {/* ✅ 4. ANÁLISIS PROFUNDO — separado abajo con divisor */}
+            {/* Análisis Profundo */}
             <div className="mt-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex-1 h-px bg-gray-200"></div>
