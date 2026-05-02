@@ -34,8 +34,8 @@ export default function Home() {
   const [limitAlcanzado, setLimitAlcanzado] = useState(false)
   const [insights, setInsights] = useState<Insight[]>([])
   const [insightsCargando, setInsightsCargando] = useState(true)
+  const [insightsExpandido, setInsightsExpandido] = useState(false)
 
-  // Onboarding
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false)
   const [negocioId, setNegocioId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -73,9 +73,7 @@ export default function Home() {
     const nombre = data.negocio?.nombre_dueno || null
     setNombreDueno(nombre)
     setNegocioCargado(true)
-
     if (data.rol === 'dueño' && !nombre) setMostrarModal(true)
-
     if (data.rol === 'dueño' && data.negocio?.id) {
       setNegocioId(data.negocio.id)
       const supabase = createClient()
@@ -147,7 +145,7 @@ export default function Home() {
       const err = await res.json()
       if (err.codigo === 'LIMITE_GRATIS') {
         setLimitAlcanzado(true)
-        setMensaje('Alcanzaste los 30 movimientos de este mes. Pasa a Pro para continuar.')
+        setMensaje('Alcanzaste los 40 movimientos de este mes. Pasa a Pro para continuar.')
       } else {
         setMensaje('Algo salió mal. Intenta de nuevo.')
       }
@@ -163,22 +161,22 @@ export default function Home() {
     return 'Buenas noches'
   }
 
-  function getInsightStyle(tipo: string) {
-    if (tipo === 'positivo') return { bg: 'bg-green-50', border: 'border-green-200', texto: 'text-green-800', icono: '👍' }
-    if (tipo === 'alerta') return { bg: 'bg-amber-50', border: 'border-amber-200', texto: 'text-amber-800', icono: '⚠️' }
-    return { bg: 'bg-blue-50', border: 'border-blue-200', texto: 'text-blue-800', icono: '💡' }
+  function getInsightPrincipal(): Insight | null {
+    if (!insights.length) return null
+    return insights.find(i => i.tipo === 'alerta') || insights[0]
   }
 
   const ingresos = movimientos.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.monto, 0)
   const egresos = movimientos.filter(m => m.tipo === 'egreso').reduce((sum, m) => sum + m.monto, 0)
   const balance = ingresos - egresos
+  const insightPrincipal = getInsightPrincipal()
+  const insightsSecundarios = insights.filter(i => i !== insightPrincipal)
 
   return (
     <AuthGuard>
       {mostrarModal && (
         <WelcomeModal onGuardar={(nombre) => { setNombreDueno(nombre); setMostrarModal(false) }} />
       )}
-
       {mostrarOnboarding && negocioId && userId && (
         <OnboardingDrawer
           userId={userId}
@@ -197,56 +195,76 @@ export default function Home() {
           {/* Saludo */}
           {negocioCargado && nombreDueno && (
             <div className="mb-4 mt-2">
-              <p className="text-lg font-semibold text-gray-800">
-                {getSaludo()}, {nombreDueno} 👋
-              </p>
+              <p className="text-lg font-semibold text-gray-800">{getSaludo()}, {nombreDueno} 👋</p>
               <p className="text-xs text-gray-400">¿Cómo va el negocio hoy?</p>
             </div>
           )}
 
-          {/* ✅ RESUMEN INTELIGENTE DEL DÍA */}
+          {/* ✅ RESUMEN INTELIGENTE — colapsable */}
           <div className="bg-white rounded-xl border border-gray-100 mb-4 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+            <div className="px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-base">🤖</span>
                 <p className="text-sm font-semibold text-gray-800">Resumen inteligente del día</p>
               </div>
               <Link href="/socio" className="text-xs text-green-600 font-medium hover:underline">
-                Ver análisis completo →
+                Ver análisis →
               </Link>
             </div>
 
             {insightsCargando ? (
-              <div className="p-4 flex gap-2 items-center">
+              <div className="px-4 pb-3 flex gap-2 items-center">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 <p className="text-xs text-gray-400 ml-1">Analizando tu negocio...</p>
               </div>
-            ) : insights.length === 0 ? (
-              <div className="p-4">
+            ) : !insightPrincipal ? (
+              <div className="px-4 pb-3">
                 <p className="text-sm text-gray-400">Registra tus primeros movimientos para ver el análisis 🚀</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-50">
-                {insights.map((insight, i) => {
-                  const style = getInsightStyle(insight.tipo)
-                  return (
-                    <div key={i} className={`px-4 py-3 flex items-start gap-3 ${i === 0 ? '' : ''}`}>
-                      <span className="text-base flex-shrink-0 mt-0.5">{style.icono}</span>
-                      <p className="text-sm text-gray-700 leading-snug">{insight.texto}</p>
-                    </div>
-                  )
-                })}
-                {!esPro && (
-                  <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
-                    <p className="text-xs text-gray-400">Tu Socio IA detectó más cosas 🔒</p>
-                    <Link href="/precios" className="text-xs bg-green-600 text-white px-3 py-1 rounded-full hover:bg-green-700 transition-all">
-                      Ver Pro ⭐
-                    </Link>
-                  </div>
+              <>
+                {/* Insight principal siempre visible */}
+                <div className="px-4 pb-3 flex items-start gap-3">
+                  <span className="text-lg flex-shrink-0 mt-0.5">
+                    {insightPrincipal.tipo === 'positivo' ? '👍' : insightPrincipal.tipo === 'alerta' ? '⚠️' : '💡'}
+                  </span>
+                  <p className="text-sm text-gray-700 leading-snug flex-1">{insightPrincipal.texto}</p>
+                </div>
+
+                {/* Insights secundarios — colapsables */}
+                {insightsSecundarios.length > 0 && (
+                  <>
+                    {insightsExpandido && (
+                      <div className="border-t border-gray-50">
+                        {insightsSecundarios.map((insight, i) => (
+                          <div key={i} className="px-4 py-2.5 flex items-start gap-3 border-b border-gray-50 last:border-0">
+                            <span className="text-base flex-shrink-0 mt-0.5">
+                              {insight.tipo === 'positivo' ? '👍' : insight.tipo === 'alerta' ? '⚠️' : '💡'}
+                            </span>
+                            <p className="text-sm text-gray-600 leading-snug">{insight.texto}</p>
+                          </div>
+                        ))}
+                        {!esPro && (
+                          <div className="px-4 py-2.5 bg-gray-50 flex items-center justify-between">
+                            <p className="text-xs text-gray-400">Tu Socio IA detectó más cosas 🔒</p>
+                            <Link href="/precios" className="text-xs bg-green-600 text-white px-3 py-1 rounded-full hover:bg-green-700 transition-all">
+                              Ver Pro ⭐
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setInsightsExpandido(!insightsExpandido)}
+                      className="w-full px-4 py-2 border-t border-gray-50 text-xs text-green-600 font-medium hover:bg-gray-50 transition-all flex items-center justify-center gap-1"
+                    >
+                      {insightsExpandido ? 'Ver menos ▲' : `Ver más (${insightsSecundarios.length} insights más) ▼`}
+                    </button>
+                  </>
                 )}
-              </div>
+              </>
             )}
           </div>
 
@@ -326,7 +344,6 @@ export default function Home() {
               >
                 {loading ? 'Guardando...' : 'Registrar'}
               </button>
-
               {mensaje && !limitAlcanzado && (
                 <p className={`text-xs mt-2 text-center ${mensajeError ? 'text-red-500' : 'text-green-600'}`}>
                   {mensaje}
@@ -334,12 +351,10 @@ export default function Home() {
               )}
               {limitAlcanzado && (
                 <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
-                  <p className="text-xs text-amber-700 font-medium mb-2">
-                    Llegaste al límite de 30 movimientos este mes 🔒
+                  <p className="text-xs text-amber-700 font-medium mb-1">
+                    Llegaste al límite de 40 movimientos este mes 🔒
                   </p>
-                  <p className="text-xs text-amber-600 mb-2">
-                    Pasa a Pro y registra sin límites
-                  </p>
+                  <p className="text-xs text-amber-600 mb-2">Pasa a Pro y registra sin límites</p>
                   <Link
                     href="/precios"
                     className="inline-block bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-all"
@@ -387,9 +402,7 @@ export default function Home() {
                   </div>
                 ))}
                 {movimientos.length > 5 && (
-                  <p className="text-xs text-center text-gray-400 pt-2">
-                    Ver todos en Movimientos
-                  </p>
+                  <p className="text-xs text-center text-gray-400 pt-2">Ver todos en Movimientos</p>
                 )}
               </div>
             )}

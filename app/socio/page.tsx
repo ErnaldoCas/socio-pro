@@ -4,13 +4,20 @@ import NavBar from '@/components/NavBar'
 import SocioChat from '@/components/SocioChat'
 import AnalisisProfundo from '@/components/AnalisisProfundo'
 import VoiceInput from '@/components/VoiceInput'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { usePlan } from '@/hooks/usePlan'
 import Link from 'next/link'
 
 export default function Socio() {
   const [sugerencia, setSugerencia] = useState('')
+  const [textoVoz, setTextoVoz] = useState('')
   const { esPro } = usePlan()
+
+  function handleVoz(texto: string) {
+    // Pone el texto en el input del chat y lo envía automáticamente
+    setSugerencia(texto)
+    setTextoVoz(texto)
+  }
 
   return (
     <AuthGuard>
@@ -62,12 +69,18 @@ export default function Socio() {
             </div>
           </div>
 
-          {/* Input de voz directo en Socio IA */}
+          {/* ✅ Input de voz funcional */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 mb-4">
-            <p className="text-xs font-medium text-gray-500 mb-2">🎤 O háblale directo</p>
+            <p className="text-xs font-medium text-gray-500 mb-3">🎤 O háblale directo</p>
             <div className="flex items-center gap-3">
-              <VoiceInput onResult={(texto) => setSugerencia(texto)} />
-              <p className="text-xs text-gray-400">Toca el micrófono y habla natural</p>
+              <VoiceInput onResult={handleVoz} />
+              <div className="flex-1">
+                {textoVoz ? (
+                  <p className="text-sm text-green-700 font-medium">"{textoVoz}" ✓</p>
+                ) : (
+                  <p className="text-xs text-gray-400">Toca el micrófono y habla natural.<br/>Ej: "¿cuánto gané esta semana?"</p>
+                )}
+              </div>
             </div>
           </div>
 
