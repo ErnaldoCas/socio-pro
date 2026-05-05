@@ -3,21 +3,13 @@ import AuthGuard from '@/components/AuthGuard'
 import NavBar from '@/components/NavBar'
 import SocioChat from '@/components/SocioChat'
 import AnalisisProfundo from '@/components/AnalisisProfundo'
-import VoiceInput from '@/components/VoiceInput'
 import { useState } from 'react'
 import { usePlan } from '@/hooks/usePlan'
 import Link from 'next/link'
 
 export default function Socio() {
   const [sugerencia, setSugerencia] = useState('')
-  const [textoVoz, setTextoVoz] = useState('')
   const { esPro } = usePlan()
-
-  function handleVoz(texto: string) {
-    setSugerencia(texto)
-    setTextoVoz(texto)
-    setTimeout(() => setTextoVoz(''), 3000)
-  }
 
   return (
     <AuthGuard>
@@ -46,46 +38,21 @@ export default function Socio() {
               </div>
             </div>
 
-            {/* ✅ MICRÓFONO + BARRA DE TEXTO — juntos en un solo bloque */}
-            <div className="bg-white rounded-2xl border border-green-100 shadow-sm p-4 mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-700">🎤 Habla o escribe</span>
-                {!esPro && (
-                  <span className="text-xs text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">
-                    2 consultas/día
-                  </span>
-                )}
-              </div>
-
-              {/* Micrófono */}
-              <div className="flex items-center gap-3 mb-3">
-                <VoiceInput onResult={handleVoz} />
-                <div className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5 min-h-[40px] flex items-center">
-                  {textoVoz ? (
-                    <p className="text-sm text-green-700 font-medium">"{textoVoz}" ✓</p>
-                  ) : (
-                    <p className="text-xs text-gray-400">Toca el micrófono y habla directo...</p>
-                  )}
+            {/* Banner plan gratis */}
+            {!esPro && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium text-amber-800">2 consultas diarias en plan gratis</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Tu Socio IA tiene más para ti 🔒</p>
                 </div>
+                <Link
+                  href="/precios"
+                  className="flex-shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
+                >
+                  Ver Pro ⭐
+                </Link>
               </div>
-
-              {/* Barra de texto — justo debajo del micrófono */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={sugerencia}
-                  onChange={e => setSugerencia(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && sugerencia.trim()) {
-                      setSugerencia(sugerencia)
-                    }
-                  }}
-                  placeholder='Ej: "¿en qué estoy perdiendo plata?"'
-                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-green-400 focus:ring-2 focus:ring-green-50 text-gray-800 placeholder-gray-400 bg-white transition-all"
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Escribe o usa el micrófono — ambos envían al chat de abajo</p>
-            </div>
+            )}
 
             {/* Preguntas sugeridas */}
             <div className="mb-4">
@@ -109,7 +76,7 @@ export default function Socio() {
               </div>
             </div>
 
-            {/* Chat */}
+            {/* Chat con micrófono integrado */}
             <SocioChat inputId="socio-input" suggestion={sugerencia} />
 
             {/* Análisis Profundo */}

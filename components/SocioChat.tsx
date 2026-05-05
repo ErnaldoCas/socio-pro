@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import VoiceInput from '@/components/VoiceInput'
 
 function formatearRespuesta(content: string) {
   const tieneFormato = content.includes('🎓') || content.includes('🤝') || content.includes('📚')
@@ -101,6 +102,10 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  function handleVoz(texto: string) {
+    setInput(texto)
+  }
+
   async function enviar(texto?: string) {
     const msg = texto || input
     if (!msg.trim() || loading || limiteAlcanzado) return
@@ -154,9 +159,11 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-      {/* Header del chat */}
-      <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between"
-        style={{ background: 'linear-gradient(90deg, #f0fdf4, #ffffff)' }}>
+      {/* Header */}
+      <div
+        className="px-4 py-3 border-b border-gray-50 flex items-center justify-between"
+        style={{ background: 'linear-gradient(90deg, #f0fdf4, #ffffff)' }}
+      >
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           <p className="text-sm font-medium text-gray-700">Chat con Socio IA</p>
@@ -187,8 +194,10 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
       )}
 
       {/* Mensajes */}
-      <div className="p-4 space-y-4 max-h-[420px] overflow-y-auto"
-        style={{ background: 'linear-gradient(180deg, #fafffe 0%, #ffffff 100%)' }}>
+      <div
+        className="p-4 space-y-4 max-h-[420px] overflow-y-auto"
+        style={{ background: 'linear-gradient(180deg, #fafffe 0%, #ffffff 100%)' }}
+      >
         {messages.map((m, i) => (
           <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
             {m.role === 'user' ? (
@@ -197,7 +206,6 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
               </div>
             ) : (
               <div className="w-full">
-                {/* Avatar del bot en primer mensaje */}
                 {i === 0 && (
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -246,7 +254,7 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* ✅ Input con micrófono integrado */}
       <div className="p-4 border-t border-gray-100" style={{ background: '#fafffe' }}>
         {limiteAlcanzado ? (
           <div className="text-center py-2">
@@ -259,7 +267,11 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
             </Link>
           </div>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {/* Micrófono */}
+            <VoiceInput onResult={handleVoz} />
+
+            {/* Input de texto */}
             <input
               id={inputId}
               type="text"
@@ -269,10 +281,12 @@ export default function SocioChat({ inputId = 'socio-input', suggestion = '' }) 
               placeholder="¿En qué estoy perdiendo plata?"
               className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-green-400 focus:ring-2 focus:ring-green-50 text-gray-800 placeholder-gray-400 bg-white transition-all"
             />
+
+            {/* Botón enviar */}
             <button
               onClick={() => enviar()}
               disabled={loading || !input.trim()}
-              className="bg-green-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-40 transition-all shadow-sm active:scale-95"
+              className="bg-green-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-40 transition-all shadow-sm active:scale-95 flex-shrink-0"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
